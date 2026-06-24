@@ -16,5 +16,6 @@ DerivedData/
 .swiftpm/
 Package.resolved
 
-# Secrets — never commit the GetSongBPM API key
-Autocrate/Data/Secrets.swift
+# Secrets: a placeholder Sources/AutocrateAppKit/Secrets.swift is tracked so the
+# package compiles. Replace the key value locally; to avoid committing your real
+# key run: git update-index --skip-worktree Sources/AutocrateAppKit/Secrets.swift
