@@ -15,3 +15,17 @@ public struct BpmMatch: Equatable {
         self.tempoShifted = tempoShifted
     }
 }
+
+/// A candidate that passed both gates, with its relationship and a ranking score.
+public struct ScoredCandidate: Equatable {
+    public let track: Track
+    public let relation: CamelotRelation
+    public let bpm: BpmMatch
+    public var score: Double
+    public init(track: Track, relation: CamelotRelation, bpm: BpmMatch, score: Double) {
+        self.track = track
+        self.relation = relation
+        self.bpm = bpm
+        self.score = score
+    }
+}
