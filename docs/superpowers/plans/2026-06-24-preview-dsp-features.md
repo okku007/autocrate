@@ -189,9 +189,13 @@ drops BPM.
 
 1. **DSP library:** Accelerate/vDSP, **not** aubio/Essentia — licensing (GPL/AGPL) blocks
    distribution. More work, but the only shippable option.
-2. **BPM policy:** best-effort + confidence-gated; weight Camelot higher in ranking. The app's core
-   value is harmonic (key) matching, which the spike proves works — so it ships value even if BPM is
-   imperfect.
+2. **BPM policy: HYBRID (chosen 2026-06-24, post Phase 0 gate).** Camelot always comes from DSP
+   (full coverage, validated). BPM comes from GetSongBPM where it has the track; DSP-BPM is used only
+   when its confidence clears a threshold; otherwise BPM is nil and matching leans on Camelot.
+   Ranking is key-dominant. Implemented as a `HybridFeatureProvider` wrapping `PreviewDSPProvider`
+   (primary) + `GetSongBpmClient` (BPM fallback) — both behind the existing `FeatureProvider` seam.
+   Rationale: Phase 0 showed DSP key is reliable but DSP-BPM confidence doesn't yet separate
+   correct from wrong, so we don't trust low-confidence DSP BPM; the API backfills where it can.
 3. **Warm strategy:** background pre-warm (now viable since analysis is local/unthrottled) — solves
    coverage **and** latency together.
 4. **Migration shape:** additive via the `FeatureProvider` seam — no pipeline rewrite; GetSongBPM
