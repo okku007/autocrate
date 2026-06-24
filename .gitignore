@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+build/
+DerivedData/
+*.moved-aside
+
+# IDE
+.idea/
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# Secrets — never commit the GetSongBPM API key
+Autocrate/Data/Secrets.swift
