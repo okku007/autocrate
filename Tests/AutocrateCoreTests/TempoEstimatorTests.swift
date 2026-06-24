@@ -24,6 +24,23 @@ final class TempoEstimatorTests: XCTestCase {
         XCTAssertGreaterThan(r.confidence, 0.5)
     }
 
+    /// Constant-amplitude notes that change pitch every beat: the *energy* is ~flat, so only a
+    /// spectral (timbre-change) onset detector recovers the 120 BPM rhythm.
+    func test_detectsTempoFromConstantEnergyMelody() {
+        let sr = 22050.0, bpm = 120.0
+        let noteLen = Int(sr * 60 / bpm)
+        let freqs = [261.63, 329.63, 392.0, 523.25]    // C E G C
+        let n = noteLen * 16
+        var s = [Float](repeating: 0, count: n)
+        for i in 0..<n {
+            let fq = freqs[(i / noteLen) % freqs.count]
+            s[i] = Float(0.8 * sin(2 * Double.pi * fq * Double(i) / sr))
+        }
+        let r = TempoEstimator.estimate(s, sampleRate: sr, band: 60...180)
+        XCTAssertEqual(r.bpm, 120, accuracy: 3)
+        XCTAssertGreaterThan(r.confidence, 0.5)
+    }
+
     func test_whiteNoiseHasLowConfidence() {
         let sr = 22050.0
         // Deterministic white noise: no periodic structure → estimator must admit low confidence.
