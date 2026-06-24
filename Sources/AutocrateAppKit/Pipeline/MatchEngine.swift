@@ -30,36 +30,21 @@ public final class MatchEngine: ObservableObject {
         let cache = try! FeatureCache(path: Self.defaultCachePath())
         self.cache = cache
         self.apiKey = Secrets.getSongBpmApiKey
-        // Hybrid, key-dominant: Camelot always from on-device DSP of Apple's preview clips
-        // (full coverage); BPM backfilled from GetSongBPM when DSP isn't confident. DSP is local +
-        // we don't self-throttle Apple's endpoints, so throttle .zero and a high cap.
+        // Hybrid, key-dominant: Camelot always from on-device DSP of Apple's preview clips;
+        // BPM backfilled from GetSongBPM when DSP isn't confident. iTunes Search (used to resolve
+        // each preview URL) rate-limits ~20/min and IP-bans bulk access, so there is NO background
+        // pre-warm — each panel open resolves only a bounded batch (`cap`), paced by the resolver's
+        // shared limiter. Coverage builds gradually across normal use; the cache persists forever.
         self.hydrator = FeatureHydrator(
             cache: cache,
             provider: HybridFeatureProvider(
                 dsp: PreviewDSPProvider(),
                 bpmFallback: GetSongBpmClient(apiKey: Secrets.getSongBpmApiKey)
             ),
-            cap: 100,
-            throttle: .zero,
+            cap: 30,
+            throttle: .zero,                                     // iTunes pacing is handled by the resolver's RateLimiter
             acceptsCached: HybridFeatureProvider.acceptsCached   // re-fetch stale legacy rows
         )
-    }
-
-    private var didPrewarm = false
-
-    /// Warms the feature cache for the whole compatible library in the background so later panel
-    /// opens hit a warm cache and render instantly. Idempotent — safe to call on every panel open.
-    public func prewarm() {
-        guard !didPrewarm else { return }
-        didPrewarm = true
-        let hydrator = self.hydrator
-        let library = self.library
-        Task.detached(priority: .utility) {
-            let pool = (await library.readAllAsync()).filter {
-                ($0.genre?.lowercased()).map(CandidatePipeline.allowlist.contains) ?? false
-            }
-            await hydrator.warmAll(pool)
-        }
     }
 
     public func refresh() async {
@@ -110,7 +95,7 @@ public final class MatchEngine: ObservableObject {
 
         var confirmed: [Track] = []
         for t in raw where !libraryIds.contains(t.id) {
-            if let match = await resolver.resolve(artist: t.artist, title: t.title) {
+            if let match = try? await resolver.resolve(artist: t.artist, title: t.title) {
                 confirmed.append(Track(id: t.id, title: t.title, artist: t.artist, genre: nil,
                                        bpm: t.bpm, camelot: t.camelot, appleMusicURL: match.appleMusicURL))
             }

@@ -16,7 +16,26 @@ private final class FakeProvider: FeatureProvider {
     }
 }
 
+private final class UnavailableProvider: FeatureProvider {
+    var calls = 0
+    func lookup(artist: String, title: String, id: String) async -> CachedFeature {
+        calls += 1
+        return CachedFeature(id: id, title: title, artist: artist, bpm: nil, camelot: nil,
+                             musicalKey: nil, source: "dsp", state: .unavailable, fetchedAt: 0)
+    }
+}
+
 final class FeatureHydratorTests: XCTestCase {
+    func test_unavailableResultIsNotCachedAndRetried() async throws {
+        let cache = try FeatureCache(path: ":memory:")
+        let provider = UnavailableProvider()
+        let hydrator = FeatureHydrator(cache: cache, provider: provider, cap: 10, throttle: .zero)
+        _ = await hydrator.hydrate([track("x")])
+        XCTAssertNil(try cache.fetch(id: "a|x"))   // transient failure (e.g. iTunes 403) not persisted
+        _ = await hydrator.hydrate([track("x")])
+        XCTAssertEqual(provider.calls, 2)          // retried next time instead of trusting a poisoned miss
+    }
+
     private func track(_ t: String) -> Track {
         Track(id: "a|\(t)", title: t, artist: "a", genre: "House", bpm: nil, camelot: nil)
     }

@@ -16,9 +16,14 @@ public struct CatalogMatch: Equatable {
 }
 
 /// Confirms a candidate exists on Apple Music. Injected as a fake in tests.
+/// Throws on a transient failure (network/timeout/HTTP 403/429/5xx) so the caller can avoid caching
+/// a permanent miss; returns nil only when the source genuinely has no matching track.
 public protocol CatalogResolver {
-    func resolve(artist: String, title: String) async -> CatalogMatch?
+    func resolve(artist: String, title: String) async throws -> CatalogMatch?
 }
+
+/// Signals the resolve couldn't reach a verdict (rate-limited/blocked/offline) vs a real no-match.
+public struct CatalogUnavailable: Error { public init() {} }
 
 /// iTunes Search API resolver. Network `resolve` delegates to the pure `parse` for testability.
 public struct iTunesResolver: CatalogResolver {
@@ -44,7 +49,7 @@ public struct iTunesResolver: CatalogResolver {
         self.limiter = limiter
     }
 
-    public func resolve(artist: String, title: String) async -> CatalogMatch? {
+    public func resolve(artist: String, title: String) async throws -> CatalogMatch? {
         let term = "\(artist) \(title)"
         // limit=5, not 1: for collab tracks iTunes ranks the artist's top hit first, so the real
         // track is often further down. parse() then picks the title-matching result (or none).
@@ -52,8 +57,14 @@ public struct iTunesResolver: CatalogResolver {
               let url = URL(string: "https://itunes.apple.com/search?media=music&entity=song&limit=5&term=\(q)")
         else { return nil }
         await limiter.acquire()   // stay under the iTunes rate limit (shared across all callers)
-        guard let (data, resp) = try? await session.data(from: url),
-              (resp as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+
+        let data: Data, resp: URLResponse
+        do { (data, resp) = try await session.data(from: url) }
+        catch { throw CatalogUnavailable() }                       // network/timeout/offline
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        // 403/429 = rate-limited/blocked, 5xx = server hiccup → transient, don't let it cache a miss.
+        if code == 403 || code == 429 || (500...599).contains(code) { throw CatalogUnavailable() }
+        guard code == 200 else { return nil }                      // other non-200 → genuine no-match
         return Self.parse(data, artist: artist, title: title)
     }
 

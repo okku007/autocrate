@@ -34,7 +34,7 @@ public actor FeatureHydrator {
             guard fetched < cap else { result.append(track); continue }
             if fetched > 0, throttle > .zero { try? await Task.sleep(for: throttle) }
             let feature = await provider.lookup(artist: track.artist, title: track.title, id: track.id)
-            try? cache.upsert(feature)
+            if feature.state != .unavailable { try? cache.upsert(feature) }   // don't persist transient failures
             fetched += 1
             result.append(apply(feature, to: track))
         }
@@ -63,7 +63,7 @@ public actor FeatureHydrator {
             } else if fetched < cap {
                 if fetched > 0, throttle > .zero { try? await Task.sleep(for: throttle) }
                 let feature = await provider.lookup(artist: track.artist, title: track.title, id: track.id)
-                try? cache.upsert(feature)
+                if feature.state != .unavailable { try? cache.upsert(feature) }   // don't persist transient failures
                 fetched += 1
                 result.append(apply(feature, to: track))
                 didNetwork = true
@@ -96,7 +96,7 @@ public actor FeatureHydrator {
     private func warmOne(_ track: Track) async {
         if let cached = try? cache.fetch(id: track.id), acceptsCached(cached) { return }
         let feature = await provider.lookup(artist: track.artist, title: track.title, id: track.id)
-        try? cache.upsert(feature)
+        if feature.state != .unavailable { try? cache.upsert(feature) }   // don't persist transient failures
     }
 
     private func apply(_ f: CachedFeature, to track: Track) -> Track {

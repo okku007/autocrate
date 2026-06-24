@@ -3,12 +3,20 @@ import XCTest
 
 private struct FakeResolver: CatalogResolver {
     var match: CatalogMatch?
-    func resolve(artist: String, title: String) async -> CatalogMatch? { match }
+    var error: Error?
+    func resolve(artist: String, title: String) async throws -> CatalogMatch? {
+        if let error { throw error }
+        return match
+    }
 }
 
 private struct FakeLoader: PreviewSampleLoader {
     var samples: [Float]
     func samples(for url: URL) async throws -> [Float] { samples }
+}
+
+private struct ThrowingLoader: PreviewSampleLoader {
+    func samples(for url: URL) async throws -> [Float] { throw URLError(.timedOut) }
 }
 
 final class PreviewDSPProviderTests: XCTestCase {
@@ -34,6 +42,21 @@ final class PreviewDSPProviderTests: XCTestCase {
         let p = PreviewDSPProvider(resolver: FakeResolver(match: match(preview: nil)), loader: FakeLoader(samples: []))
         let f = await p.lookup(artist: "A", title: "T", id: "id")
         XCTAssertEqual(f.state, .miss)
+    }
+
+    func test_resolverFailureIsUnavailableNotMiss() async {
+        // iTunes 403/timeout etc. → transient: must NOT be cached as a permanent miss.
+        let p = PreviewDSPProvider(resolver: FakeResolver(match: nil, error: URLError(.timedOut)),
+                                   loader: FakeLoader(samples: []))
+        let f = await p.lookup(artist: "A", title: "T", id: "id")
+        XCTAssertEqual(f.state, .unavailable)
+    }
+
+    func test_clipDownloadFailureIsUnavailable() async {
+        let p = PreviewDSPProvider(resolver: FakeResolver(match: match(preview: "https://x/p.m4a")),
+                                   loader: ThrowingLoader())
+        let f = await p.lookup(artist: "A", title: "T", id: "id")
+        XCTAssertEqual(f.state, .unavailable)
     }
 
     func test_clearBeatYieldsFoundWithBpmAndKey() async {

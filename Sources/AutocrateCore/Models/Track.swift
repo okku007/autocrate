@@ -1,7 +1,11 @@
 import Foundation
 
-/// Outcome of a feature lookup. `unsure` is reserved for the future DSP path (not produced in v1).
-public enum LookupState: String, Codable { case found, unsure, miss }
+/// Outcome of a feature lookup.
+/// - `found`: features resolved. `miss`: reached the source, genuinely no data (cache it).
+/// - `unavailable`: a transient failure (iTunes 403/429, timeout, offline) — NOT cached, so it's
+///   retried next session instead of poisoning the cache with a permanent miss.
+/// - `unsure`: reserved (not produced).
+public enum LookupState: String, Codable { case found, unsure, miss, unavailable }
 
 /// A track — from the library or the catalog. Features (`bpm`, `camelot`) are nil
 /// until hydrated from the cache.

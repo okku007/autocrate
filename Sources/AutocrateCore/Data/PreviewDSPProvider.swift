@@ -47,14 +47,21 @@ public struct PreviewDSPProvider: FeatureProvider {
 
     public func lookup(artist: String, title: String, id: String) async -> CachedFeature {
         let now = Int(Date().timeIntervalSince1970)
-        func miss() -> CachedFeature {
+        func row(_ state: LookupState) -> CachedFeature {
             CachedFeature(id: id, title: title, artist: artist, bpm: nil, camelot: nil,
-                          musicalKey: nil, source: "dsp", state: .miss, fetchedAt: now)
+                          musicalKey: nil, source: "dsp", state: state, fetchedAt: now)
         }
-        guard let match = await resolver.resolve(artist: artist, title: title),
-              let preview = match.previewUrl,
-              let samples = try? await loader.samples(for: preview),
-              samples.count > 4096 else { return miss() }
+        // .miss = reached the catalog, genuinely no usable track (cache it).
+        // .unavailable = couldn't reach it / clip fetch failed → transient, not cached, retried later.
+        let resolved: CatalogMatch?
+        do { resolved = try await resolver.resolve(artist: artist, title: title) }
+        catch { return row(.unavailable) }
+        guard let match = resolved, let preview = match.previewUrl else { return row(.miss) }
+
+        let samples: [Float]
+        do { samples = try await loader.samples(for: preview) }
+        catch { return row(.unavailable) }
+        guard samples.count > 4096 else { return row(.miss) }
 
         let key = KeyEstimator.estimate(samples, sampleRate: sampleRate)
         let tempo = TempoEstimator.estimate(samples, sampleRate: sampleRate, band: band)
