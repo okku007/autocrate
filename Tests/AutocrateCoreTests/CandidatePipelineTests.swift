@@ -29,12 +29,27 @@ final class CandidatePipelineTests: XCTestCase {
         ])
         XCTAssertTrue(out.isEmpty)
     }
-    func test_excludesMissingFeatures() {
+    func test_excludesMissingKey() {
+        // Key is the product — no Camelot means no harmonic relation, so drop it.
         let out = pipeline.shortlist(seed: seed(), candidates: [
-            cand("noBpm", genre: "House", bpm: nil, camelot: "8A"),
             cand("noKey", genre: "House", bpm: 128, camelot: nil)
         ])
         XCTAssertTrue(out.isEmpty)
+    }
+    func test_keepsKeyOnlyCandidateWhenBpmMissing() {
+        // BPM is a soft factor under DSP: a compatible key with no BPM is still a valid pick.
+        let out = pipeline.shortlist(seed: seed(), candidates: [
+            cand("keyOnly", genre: "House", bpm: nil, camelot: "8A")
+        ])
+        XCTAssertEqual(out.map(\.track.id), ["keyOnly"])
+        XCTAssertNil(out.first?.bpm)
+    }
+    func test_keyOnlyRanksBelowInBandMatchAtSameRelation() {
+        let out = pipeline.shortlist(seed: seed(), candidates: [
+            cand("keyOnly", genre: "House", bpm: nil, camelot: "8A"),
+            cand("inBand",  genre: "House", bpm: 128, camelot: "8A")
+        ])
+        XCTAssertEqual(out.map(\.track.id), ["inBand", "keyOnly"])
     }
     func test_keepsAndRanksCompatible() {
         let out = pipeline.shortlist(seed: seed(), candidates: [

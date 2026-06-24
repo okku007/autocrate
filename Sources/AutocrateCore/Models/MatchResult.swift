@@ -16,13 +16,15 @@ public struct BpmMatch: Equatable {
     }
 }
 
-/// A candidate that passed both gates, with its relationship and a ranking score.
+/// A candidate that passed the harmonic gate, with its relationship and a ranking score.
+/// `bpm` is nil when the candidate has no usable BPM (DSP unconfident, no API fallback) — it's
+/// still a valid harmonic pick, just ranked below tempo-confirmed candidates of the same relation.
 public struct ScoredCandidate: Equatable {
     public let track: Track
     public let relation: CamelotRelation
-    public let bpm: BpmMatch
+    public let bpm: BpmMatch?
     public var score: Double
-    public init(track: Track, relation: CamelotRelation, bpm: BpmMatch, score: Double) {
+    public init(track: Track, relation: CamelotRelation, bpm: BpmMatch?, score: Double) {
         self.track = track
         self.relation = relation
         self.bpm = bpm

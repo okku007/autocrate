@@ -9,9 +9,11 @@ the setlist AutoMix runs on. v1 is show-only: you add picks to your own queue.
 ## Architecture
 
 - **`AutocrateCore`** (SwiftPM library, headlessly tested) — pure matching logic
-  (Camelot wheel, key→Camelot, BPM band with half/double-time, ranker), GRDB
-  feature cache, GetSongBPM client, lazy/capped/throttled hydrator, and the
-  filter+rank pipeline.
+  (Camelot wheel, key→Camelot, BPM band with half/double-time, key-dominant ranker),
+  GRDB feature cache, the feature providers, lazy/capped/throttled hydrator, and the
+  filter+rank pipeline. Features come from a **hybrid provider**: Camelot key from
+  on-device DSP of Apple's 30s preview clips (full coverage), with BPM from DSP when
+  confident and backfilled from GetSongBPM otherwise.
 - **`AutocrateAppKit`** (SwiftPM library) — ScriptingBridge readers, the
   `MatchEngine` coordinator, and the SwiftUI menu-bar panel.
 - **`App/` + `Autocrate.xcodeproj`** — the thin macOS app shell (`@main`,
@@ -37,8 +39,9 @@ verification checklist.
 ## Setup note
 
 Add your free GetSongBPM API key to `Sources/AutocrateAppKit/Secrets.swift`
-(replace the placeholder) before running.
+(replace the placeholder) before running. It's now the **BPM fallback** (and the
+discover source); the key always comes from on-device DSP.
 
 ---
 
-BPM and key data provided by [GetSongBPM](https://getsongbpm.com).
+BPM data provided by [GetSongBPM](https://getsongbpm.com).

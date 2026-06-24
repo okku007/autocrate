@@ -28,7 +28,7 @@ public struct ShortlistRow: View {
                 Text(candidate.track.artist).font(Fonts.body(10)).foregroundStyle(Theme.textSecondary)
             }
             Spacer()
-            if candidate.bpm.tempoShifted {
+            if candidate.bpm?.tempoShifted == true {
                 Text("½×").font(Fonts.body(9)).foregroundStyle(Theme.textSecondary)
             }
             Text(candidate.track.bpm.map { String(format: "%.0f", $0) } ?? "—")

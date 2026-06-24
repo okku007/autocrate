@@ -10,26 +10,37 @@ public struct CandidatePipeline {
     public func shortlist(seed: Track, candidates: [Track]) -> [ScoredCandidate] {
         guard let seedBPM = seed.bpm, let seedKey = seed.camelot else { return [] }
 
-        let scored: [ScoredCandidate] = candidates.compactMap { c in
+        let scored: [ScoredCandidate] = candidates.compactMap { c -> ScoredCandidate? in
             guard c.id != seed.id else { return nil }
             guard let genre = c.genre?.lowercased(), Self.allowlist.contains(genre) else { return nil }
-            guard let bpm = c.bpm, let key = c.camelot else { return nil }
-            guard let bpmMatch = BpmBand.evaluate(seedBPM: seedBPM, candidateBPM: bpm) else { return nil }
-            guard let relation = CamelotWheel.relation(seed: seedKey, candidate: key) else { return nil }
-            return ScoredCandidate(track: c, relation: relation, bpm: bpmMatch, score: 0)
+            return score(candidate: c, seedBPM: seedBPM, seedKey: seedKey)
         }
         return Ranker.rank(scored)
     }
 
-    /// Discover candidates carry no library genre tag; gate on BPM + Camelot only.
+    /// Discover candidates carry no library genre tag; gate on key only, BPM soft.
     public func shortlistDiscover(seed: Track, candidates: [Track]) -> [ScoredCandidate] {
         guard let seedBPM = seed.bpm, let seedKey = seed.camelot else { return [] }
-        let scored: [ScoredCandidate] = candidates.compactMap { c in
-            guard c.id != seed.id, let bpm = c.bpm, let key = c.camelot,
-                  let bpmMatch = BpmBand.evaluate(seedBPM: seedBPM, candidateBPM: bpm),
-                  let relation = CamelotWheel.relation(seed: seedKey, candidate: key) else { return nil }
-            return ScoredCandidate(track: c, relation: relation, bpm: bpmMatch, score: 0)
+        let scored: [ScoredCandidate] = candidates.compactMap { c -> ScoredCandidate? in
+            guard c.id != seed.id else { return nil }
+            return score(candidate: c, seedBPM: seedBPM, seedKey: seedKey)
         }
         return Ranker.rank(scored)
+    }
+
+    /// Gates one candidate: key is required and must be harmonically compatible. BPM is soft — a
+    /// candidate with no BPM is kept (ranked on key alone), but a present BPM that's out of band is
+    /// a real tempo clash and drops the candidate.
+    private func score(candidate c: Track, seedBPM: Double, seedKey: CamelotKey) -> ScoredCandidate? {
+        guard let key = c.camelot,
+              let relation = CamelotWheel.relation(seed: seedKey, candidate: key) else { return nil }
+        let bpmMatch: BpmMatch?
+        if let bpm = c.bpm {
+            guard let m = BpmBand.evaluate(seedBPM: seedBPM, candidateBPM: bpm) else { return nil }
+            bpmMatch = m
+        } else {
+            bpmMatch = nil
+        }
+        return ScoredCandidate(track: c, relation: relation, bpm: bpmMatch, score: 0)
     }
 }
