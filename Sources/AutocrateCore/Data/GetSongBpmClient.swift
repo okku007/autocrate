@@ -31,7 +31,9 @@ public struct GetSongBpmClient: FeatureProvider {
         guard let song = await search(artist: artist, title: title) else { return miss() }
 
         let bpm = song.tempo.flatMap(Double.init)
-        let camelot = song.keyOf.flatMap { KeyToCamelot.camelot(forMusicalKey: $0) }?.description
+        // GetSongBPM's key_of uses Unicode ♯/♭ + compact notation; open_key (OpenKey) parses cleanly.
+        let camelot = song.openKey.flatMap { KeyToCamelot.camelot(forOpenKey: $0) }?.description
+            ?? song.keyOf.flatMap { KeyToCamelot.camelot(forMusicalKey: $0) }?.description
         guard bpm != nil || camelot != nil else { return miss() }
 
         return CachedFeature(id: id, title: title, artist: artist, bpm: bpm, camelot: camelot,
@@ -44,7 +46,12 @@ public struct GetSongBpmClient: FeatureProvider {
     private struct Song: Decodable {
         let tempo: String?
         let keyOf: String?
-        enum CodingKeys: String, CodingKey { case tempo; case keyOf = "key_of" }
+        let openKey: String?
+        enum CodingKeys: String, CodingKey {
+            case tempo
+            case keyOf = "key_of"
+            case openKey = "open_key"
+        }
     }
 
     /// Catalog discovery: GetSongBPM `/tempo/` + `/key/` search for fresh candidates
@@ -65,12 +72,14 @@ public struct GetSongBpmClient: FeatureProvider {
     private struct DiscoverItem: Decodable {
         let tempo: String?
         let keyOf: String?
+        let openKey: String?
         let songTitle: String?
         let artist: Artist?
         struct Artist: Decodable { let name: String? }
         enum CodingKeys: String, CodingKey {
             case tempo
             case keyOf = "key_of"
+            case openKey = "open_key"
             case songTitle = "song_title"
             case artist
         }
@@ -92,11 +101,13 @@ public struct GetSongBpmClient: FeatureProvider {
         let items = (decoded.tempo ?? []) + (decoded.key ?? [])
         return items.compactMap { item in
             guard let title = item.songTitle, let artist = item.artist?.name else { return nil }
+            let camelot = item.openKey.flatMap { KeyToCamelot.camelot(forOpenKey: $0) }
+                ?? item.keyOf.flatMap { KeyToCamelot.camelot(forMusicalKey: $0) }
             return Track(
                 id: "\(artist.lowercased().trimmingCharacters(in: .whitespaces))|\(title.lowercased().trimmingCharacters(in: .whitespaces))",
                 title: title, artist: artist, genre: nil,
                 bpm: item.tempo.flatMap(Double.init),
-                camelot: item.keyOf.flatMap { KeyToCamelot.camelot(forMusicalKey: $0) }
+                camelot: camelot
             )
         }
     }

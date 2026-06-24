@@ -25,6 +25,16 @@ public enum KeyToCamelot {
         0: 5, 1: 12, 2: 7, 3: 2, 4: 9, 5: 4, 6: 11, 7: 6, 8: 1, 9: 8, 10: 3, 11: 10
     ]
 
+    /// Converts GetSongBPM's OpenKey notation ("6m", "9d") to a CamelotKey.
+    /// m = minor (Camelot A), d = major (Camelot B). Camelot number = ((n + 6) mod 12) + 1.
+    public static func camelot(forOpenKey openKey: String) -> CamelotKey? {
+        let s = openKey.trimmingCharacters(in: .whitespaces).lowercased()
+        guard let last = s.last, last == "m" || last == "d" else { return nil }
+        guard let n = Int(s.dropLast()), (1...12).contains(n) else { return nil }
+        let number = ((n + 6) % 12) + 1
+        return CamelotKey(number: number, letter: last == "m" ? .a : .b)
+    }
+
     public static func camelot(forMusicalKey key: String) -> CamelotKey? {
         let cleaned = key.trimmingCharacters(in: .whitespaces).uppercased()
         guard !cleaned.isEmpty else { return nil }
