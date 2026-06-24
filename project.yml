@@ -1,0 +1,31 @@
+name: Autocrate
+options:
+  bundleIdPrefix: dev.moksh
+  deploymentTarget:
+    macOS: "13.0"
+  createIntermediateGroups: true
+packages:
+  Autocrate:
+    path: .
+targets:
+  Autocrate:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: App/AutocrateApp.swift
+      - path: Fonts
+        buildPhase: resources
+    dependencies:
+      - package: Autocrate
+        product: AutocrateAppKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.moksh.autocrate
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
