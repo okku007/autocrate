@@ -1,5 +1,5 @@
 /// Outcome of a feature lookup. `unsure` is reserved for the future DSP path (not produced in v1).
-public enum LookupState: String { case found, unsure, miss }
+public enum LookupState: String, Codable { case found, unsure, miss }
 
 /// A track — from the library or the catalog. Features (`bpm`, `camelot`) are nil
 /// until hydrated from the cache.
