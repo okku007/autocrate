@@ -71,6 +71,8 @@ public struct MenuPanelView: View {
             .padding(.horizontal, Theme.panelPadding)
             .padding(.vertical, 6)
         }
-        .frame(maxHeight: 320)
+        // Fixed (not max) height: the list keeps a stable viewport so the panel doesn't collapse to a
+        // sliver with one result, and doesn't resize on every streamed match. Scrolls when it overflows.
+        .frame(height: 320)
     }
 }
