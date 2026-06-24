@@ -5,3 +5,13 @@ public enum CamelotRelation: Int {
     case perfect  = 3
     public var weight: Int { rawValue }
 }
+
+/// Result of evaluating a candidate's BPM against the seed band.
+public struct BpmMatch: Equatable {
+    public let closeness: Double   // 0...1, 1 = exact seed BPM
+    public let tempoShifted: Bool  // true when matched via half/double-time
+    public init(closeness: Double, tempoShifted: Bool) {
+        self.closeness = closeness
+        self.tempoShifted = tempoShifted
+    }
+}
