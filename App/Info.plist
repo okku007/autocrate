@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Menu-bar-only app: no Dock icon, no main window. -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <!-- Required for ScriptingBridge automation of Music.app (TCC prompt text). -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Autocrate reads the currently playing track from Music to suggest compatible next tracks.</string>
+
+    <!-- Bundled fonts live at the resource root. Add the JetBrains Mono and Geist Pixel
+         Square font files to the app target's Copy Bundle Resources phase. -->
+    <key>ATSApplicationFontsPath</key>
+    <string>.</string>
+
+    <key>CFBundleName</key>
+    <string>Autocrate</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+</dict>
+</plist>
