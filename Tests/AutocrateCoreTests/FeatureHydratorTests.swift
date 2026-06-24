@@ -52,6 +52,51 @@ final class FeatureHydratorTests: XCTestCase {
         let out = await hydrator.hydrate([track("x")])
         XCTAssertNil(out.first?.bpm)
     }
+    func test_staleCachedRowIsRefetched() async throws {
+        let cache = try FeatureCache(path: ":memory:")
+        // Legacy GetSongBPM row already on disk with stale BPM.
+        try cache.upsert(CachedFeature(id: "a|x", title: "x", artist: "a", bpm: 999, camelot: "1A",
+                                       musicalKey: nil, source: "getsongbpm", state: .found, fetchedAt: 0))
+        let provider = FakeProvider(["x": 128])
+        let hydrator = FeatureHydrator(cache: cache, provider: provider, cap: 10, throttle: .zero,
+                                       acceptsCached: { $0.source == "dsp" || $0.source == "dsp+api" })
+        let out = await hydrator.hydrate([track("x")])
+        XCTAssertEqual(provider.calls, 1)        // legacy row rejected → re-fetched
+        XCTAssertEqual(out.first?.bpm, 128)      // fresh value, not the stale 999
+    }
+    func test_freshCachedRowServedWhenAccepted() async throws {
+        let cache = try FeatureCache(path: ":memory:")
+        try cache.upsert(CachedFeature(id: "a|x", title: "x", artist: "a", bpm: 124, camelot: "8A",
+                                       musicalKey: nil, source: "dsp", state: .found, fetchedAt: 0))
+        let provider = FakeProvider(["x": 128])
+        let hydrator = FeatureHydrator(cache: cache, provider: provider, cap: 10, throttle: .zero,
+                                       acceptsCached: { $0.source == "dsp" || $0.source == "dsp+api" })
+        let out = await hydrator.hydrate([track("x")])
+        XCTAssertEqual(provider.calls, 0)        // DSP row trusted → no re-fetch
+        XCTAssertEqual(out.first?.bpm, 124)
+    }
+    func test_warmAllCachesEveryTrackUncappedUnthrottled() async throws {
+        let cache = try FeatureCache(path: ":memory:")
+        let provider = FakeProvider(["a": 120, "b": 130, "c": 140])
+        // cap 1 would gate hydrate(); warmAll must ignore the cap and warm the whole list.
+        let hydrator = FeatureHydrator(cache: cache, provider: provider, cap: 1, throttle: .seconds(99))
+        await hydrator.warmAll([track("a"), track("b"), track("c")], concurrency: 2)
+        XCTAssertEqual(provider.calls, 3)
+        XCTAssertEqual(try cache.fetch(id: "a|a")?.bpm, 120)
+        XCTAssertEqual(try cache.fetch(id: "a|b")?.bpm, 130)
+        XCTAssertEqual(try cache.fetch(id: "a|c")?.bpm, 140)
+    }
+    func test_warmAllSkipsAcceptedCachedRows() async throws {
+        let cache = try FeatureCache(path: ":memory:")
+        try cache.upsert(CachedFeature(id: "a|a", title: "a", artist: "a", bpm: 124, camelot: "8A",
+                                       musicalKey: nil, source: "dsp", state: .found, fetchedAt: 0))
+        let provider = FakeProvider(["a": 120, "b": 130])
+        let hydrator = FeatureHydrator(cache: cache, provider: provider, throttle: .zero,
+                                       acceptsCached: { $0.source == "dsp" || $0.source == "dsp+api" })
+        await hydrator.warmAll([track("a"), track("b")], concurrency: 2)
+        XCTAssertEqual(provider.calls, 1)        // "a" already DSP-cached → only "b" fetched
+        XCTAssertEqual(try cache.fetch(id: "a|a")?.bpm, 124)
+    }
     func test_progressiveStreamYieldsMonotonicScanAndFullFinalResult() async throws {
         let cache = try FeatureCache(path: ":memory:")
         let provider = FakeProvider(["a": 120, "b": 130])

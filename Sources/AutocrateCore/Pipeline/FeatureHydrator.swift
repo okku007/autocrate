@@ -7,12 +7,18 @@ public actor FeatureHydrator {
     private let provider: FeatureProvider
     private let cap: Int
     private let throttle: Duration
+    /// Whether a cached row may be served as-is. Rows it rejects (e.g. stale legacy sources) are
+    /// re-fetched through the provider. Default trusts every cached row.
+    private let acceptsCached: @Sendable (CachedFeature) -> Bool
 
-    public init(cache: FeatureCache, provider: FeatureProvider, cap: Int = 50, throttle: Duration = .seconds(1)) {
+    public init(cache: FeatureCache, provider: FeatureProvider, cap: Int = 50,
+                throttle: Duration = .seconds(1),
+                acceptsCached: @escaping @Sendable (CachedFeature) -> Bool = { _ in true }) {
         self.cache = cache
         self.provider = provider
         self.cap = cap
         self.throttle = throttle
+        self.acceptsCached = acceptsCached
     }
 
     /// Returns the tracks with bpm/camelot populated where known. Uncached tracks beyond
@@ -21,7 +27,7 @@ public actor FeatureHydrator {
         var fetched = 0
         var result: [Track] = []
         for track in tracks {
-            if let cached = try? cache.fetch(id: track.id) {
+            if let cached = try? cache.fetch(id: track.id), acceptsCached(cached) {
                 result.append(apply(cached, to: track))
                 continue
             }
@@ -52,7 +58,7 @@ public actor FeatureHydrator {
         for (i, track) in tracks.enumerated() {
             if Task.isCancelled { break }
             var didNetwork = false
-            if let cached = try? cache.fetch(id: track.id) {
+            if let cached = try? cache.fetch(id: track.id), acceptsCached(cached) {
                 result.append(apply(cached, to: track))
             } else if fetched < cap {
                 if fetched > 0, throttle > .zero { try? await Task.sleep(for: throttle) }
@@ -70,6 +76,27 @@ public actor FeatureHydrator {
             }
         }
         continuation.finish()
+    }
+
+    /// Pre-warms the cache for the whole library, ignoring `cap`/`throttle` and fetching up to
+    /// `concurrency` tracks at once. Cache-first (skips rows `acceptsCached` trusts). Intended to
+    /// run in the background after launch so later panel opens hit a warm cache and render instantly.
+    public func warmAll(_ tracks: [Track], concurrency: Int = 8) async {
+        var iterator = tracks.makeIterator()
+        await withTaskGroup(of: Void.self) { group in
+            func addNext() {
+                guard let t = iterator.next() else { return }
+                group.addTask { await self.warmOne(t) }
+            }
+            for _ in 0..<max(1, min(concurrency, tracks.count)) { addNext() }
+            while await group.next() != nil { addNext() }
+        }
+    }
+
+    private func warmOne(_ track: Track) async {
+        if let cached = try? cache.fetch(id: track.id), acceptsCached(cached) { return }
+        let feature = await provider.lookup(artist: track.artist, title: track.title, id: track.id)
+        try? cache.upsert(feature)
     }
 
     private func apply(_ f: CachedFeature, to track: Track) -> Track {

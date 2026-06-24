@@ -13,9 +13,12 @@ public struct CachedFeature: Equatable, Codable, FetchableRecord, PersistableRec
     public let source: String
     public let state: LookupState
     public let fetchedAt: Int
+    /// Estimator confidence (0...1) for DSP-sourced rows; nil for network/legacy rows.
+    public let confidence: Double?
 
     public init(id: String, title: String, artist: String, bpm: Double?, camelot: String?,
-                musicalKey: String?, source: String, state: LookupState, fetchedAt: Int) {
+                musicalKey: String?, source: String, state: LookupState, fetchedAt: Int,
+                confidence: Double? = nil) {
         self.id = id
         self.title = title
         self.artist = artist
@@ -25,6 +28,7 @@ public struct CachedFeature: Equatable, Codable, FetchableRecord, PersistableRec
         self.source = source
         self.state = state
         self.fetchedAt = fetchedAt
+        self.confidence = confidence
     }
 
     public static let databaseTableName = "feature_cache"
@@ -33,6 +37,7 @@ public struct CachedFeature: Equatable, Codable, FetchableRecord, PersistableRec
         case musicalKey = "musical_key"
         case source, state
         case fetchedAt = "fetched_at"
+        case confidence
     }
 }
 
@@ -58,6 +63,11 @@ public final class FeatureCache {
                 t.column("source", .text).notNull()
                 t.column("state", .text).notNull()
                 t.column("fetched_at", .integer).notNull()
+            }
+        }
+        m.registerMigration("v2-confidence") { db in
+            try db.alter(table: "feature_cache") { t in
+                t.add(column: "confidence", .double)   // nullable: legacy/network rows have none
             }
         }
         return m

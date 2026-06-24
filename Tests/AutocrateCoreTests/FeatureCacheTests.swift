@@ -31,4 +31,16 @@ final class FeatureCacheTests: XCTestCase {
         try cache.upsert(feature("a|b", state: .found))
         XCTAssertEqual(try cache.fetch(id: "a|b")?.state, .found)
     }
+    func test_confidenceRoundTrips() throws {
+        let cache = try makeCache()
+        let f = CachedFeature(id: "c|d", title: "T", artist: "A", bpm: 128, camelot: "8A",
+                              musicalKey: nil, source: "dsp", state: .found, fetchedAt: 3, confidence: 0.86)
+        try cache.upsert(f)
+        XCTAssertEqual(try cache.fetch(id: "c|d")?.confidence, 0.86)
+    }
+    func test_confidenceDefaultsNilWhenOmitted() throws {
+        let cache = try makeCache()
+        try cache.upsert(feature("a|b"))   // helper omits confidence
+        XCTAssertNil(try cache.fetch(id: "a|b")?.confidence)
+    }
 }

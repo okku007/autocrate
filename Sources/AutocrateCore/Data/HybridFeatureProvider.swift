@@ -10,6 +10,13 @@ public struct HybridFeatureProvider: FeatureProvider {
         self.bpmFallback = bpmFallback
     }
 
+    /// Cached sources this provider produces and therefore trusts. Legacy/network-only rows
+    /// (e.g. "getsongbpm") are not here, so the hydrator re-fetches them through DSP.
+    public static let dspSources: Set<String> = ["dsp", "dsp+api"]
+
+    /// Predicate for `FeatureHydrator.acceptsCached`: keep DSP-derived rows, re-fetch the rest.
+    public static let acceptsCached: @Sendable (CachedFeature) -> Bool = { dspSources.contains($0.source) }
+
     public func lookup(artist: String, title: String, id: String) async -> CachedFeature {
         let f = await dsp.lookup(artist: artist, title: title, id: id)
         guard f.state == .found, f.bpm == nil else { return f }
@@ -19,6 +26,7 @@ public struct HybridFeatureProvider: FeatureProvider {
 
         return CachedFeature(id: f.id, title: f.title, artist: f.artist, bpm: apiBpm,
                              camelot: f.camelot, musicalKey: f.musicalKey,
-                             source: "dsp+api", state: f.state, fetchedAt: f.fetchedAt)
+                             source: "dsp+api", state: f.state, fetchedAt: f.fetchedAt,
+                             confidence: f.confidence)
     }
 }

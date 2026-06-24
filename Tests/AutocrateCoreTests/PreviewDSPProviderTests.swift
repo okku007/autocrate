@@ -47,6 +47,15 @@ final class PreviewDSPProviderTests: XCTestCase {
         XCTAssertEqual(f.source, "dsp")
     }
 
+    func test_storesKeyConfidence() async throws {
+        let samples = clickTrack(bpm: 120, seconds: 8, sr: 22050)
+        let p = PreviewDSPProvider(resolver: FakeResolver(match: match(preview: "https://x/p.m4a")),
+                                   loader: FakeLoader(samples: samples))
+        let f = await p.lookup(artist: "A", title: "T", id: "id")
+        let conf = try XCTUnwrap(f.confidence)            // key confidence persisted for ranking
+        XCTAssert((0...1).contains(conf), "confidence \(conf) out of 0...1")
+    }
+
     func test_noBeatDropsBpmButKeepsKey() async {
         // Deterministic noise: no rhythmic structure → BPM confidence too low → BPM dropped.
         var seed: UInt64 = 0xBEEF

@@ -17,7 +17,7 @@ public struct MenuPanelView: View {
         }
         .frame(width: 340)
         .background(Theme.bg)
-        .task { await engine.refresh() }
+        .task { engine.prewarm(); await engine.refresh() }
     }
 
     @ViewBuilder private var content: some View {

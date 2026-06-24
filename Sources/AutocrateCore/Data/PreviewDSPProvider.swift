@@ -61,6 +61,7 @@ public struct PreviewDSPProvider: FeatureProvider {
         let bpm = tempo.confidence >= bpmConfidenceThreshold ? tempo.bpm.rounded() : nil
         return CachedFeature(id: id, title: title, artist: artist, bpm: bpm,
                              camelot: key.camelot.description, musicalKey: nil,
-                             source: "dsp", state: .found, fetchedAt: now)
+                             source: "dsp", state: .found, fetchedAt: now,
+                             confidence: key.confidence)
     }
 }

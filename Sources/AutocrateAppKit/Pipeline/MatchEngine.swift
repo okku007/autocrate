@@ -30,10 +30,36 @@ public final class MatchEngine: ObservableObject {
         let cache = try! FeatureCache(path: Self.defaultCachePath())
         self.cache = cache
         self.apiKey = Secrets.getSongBpmApiKey
+        // Hybrid, key-dominant: Camelot always from on-device DSP of Apple's preview clips
+        // (full coverage); BPM backfilled from GetSongBPM when DSP isn't confident. DSP is local +
+        // we don't self-throttle Apple's endpoints, so throttle .zero and a high cap.
         self.hydrator = FeatureHydrator(
             cache: cache,
-            provider: GetSongBpmClient(apiKey: Secrets.getSongBpmApiKey)
+            provider: HybridFeatureProvider(
+                dsp: PreviewDSPProvider(),
+                bpmFallback: GetSongBpmClient(apiKey: Secrets.getSongBpmApiKey)
+            ),
+            cap: 100,
+            throttle: .zero,
+            acceptsCached: HybridFeatureProvider.acceptsCached   // re-fetch stale legacy rows
         )
+    }
+
+    private var didPrewarm = false
+
+    /// Warms the feature cache for the whole compatible library in the background so later panel
+    /// opens hit a warm cache and render instantly. Idempotent — safe to call on every panel open.
+    public func prewarm() {
+        guard !didPrewarm else { return }
+        didPrewarm = true
+        let hydrator = self.hydrator
+        let library = self.library
+        Task.detached(priority: .utility) {
+            let pool = (await library.readAllAsync()).filter {
+                ($0.genre?.lowercased()).map(CandidatePipeline.allowlist.contains) ?? false
+            }
+            await hydrator.warmAll(pool)
+        }
     }
 
     public func refresh() async {

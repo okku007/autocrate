@@ -10,18 +10,20 @@ private final class StubProvider: FeatureProvider {
         calls += 1
         return CachedFeature(id: id, title: title, artist: artist, bpm: feature.bpm,
                              camelot: feature.camelot, musicalKey: feature.musicalKey,
-                             source: feature.source, state: feature.state, fetchedAt: feature.fetchedAt)
+                             source: feature.source, state: feature.state,
+                             fetchedAt: feature.fetchedAt, confidence: feature.confidence)
     }
 }
 
-private func feature(bpm: Double?, camelot: String?, source: String, state: LookupState) -> CachedFeature {
+private func feature(bpm: Double?, camelot: String?, source: String, state: LookupState,
+                     confidence: Double? = nil) -> CachedFeature {
     CachedFeature(id: "id", title: "T", artist: "A", bpm: bpm, camelot: camelot,
-                  musicalKey: nil, source: source, state: state, fetchedAt: 0)
+                  musicalKey: nil, source: source, state: state, fetchedAt: 0, confidence: confidence)
 }
 
 final class HybridFeatureProviderTests: XCTestCase {
     func test_dspBpmNil_backfillsFromFallbackKeepingDspCamelot() async {
-        let dsp = StubProvider(feature(bpm: nil, camelot: "8A", source: "dsp", state: .found))
+        let dsp = StubProvider(feature(bpm: nil, camelot: "8A", source: "dsp", state: .found, confidence: 0.86))
         let fallback = StubProvider(feature(bpm: 128, camelot: "5A", source: "getsongbpm", state: .found))
         let hybrid = HybridFeatureProvider(dsp: dsp, bpmFallback: fallback)
 
@@ -31,6 +33,7 @@ final class HybridFeatureProviderTests: XCTestCase {
         XCTAssertEqual(f.bpm, 128)            // BPM backfilled from fallback
         XCTAssertEqual(f.camelot, "8A")       // Camelot stays from DSP, not the fallback's 5A
         XCTAssertEqual(f.source, "dsp+api")
+        XCTAssertEqual(f.confidence, 0.86)    // DSP key confidence survives the merge
         XCTAssertEqual(fallback.calls, 1)
     }
 
