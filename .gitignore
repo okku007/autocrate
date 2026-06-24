@@ -21,3 +21,7 @@ Package.resolved
 # Secrets: a placeholder Sources/AutocrateAppKit/Secrets.swift is tracked so the
 # package compiles. Replace the key value locally; to avoid committing your real
 # key run: git update-index --skip-worktree Sources/AutocrateAppKit/Secrets.swift
+
+# Internal planning docs / session handoffs — keep local, never push (public repo).
+HANDOFF.md
+docs/
