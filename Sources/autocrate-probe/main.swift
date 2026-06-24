@@ -79,6 +79,13 @@ if !raw.isEmpty {
     }
 }
 
+// Does Apple Music already hold BPM tags locally? (If so we can skip the API for tagged tracks.)
+if !raw.isEmpty, let tracks = music.value(forKey: "tracks") as? SBElementArray {
+    let bpms = timed("array(byApplying: bpm) [bulk]") { tracks.array(byApplying: Selector(("bpm"))) }
+    let tagged = bpms.compactMap { ($0 as? NSNumber)?.intValue }.filter { $0 > 0 }
+    print("  → tracks with a local BPM tag (>0): \(tagged.count) of \(bpms.count)")
+}
+
 // MARK: - 3. The real LibraryReader.readAll() — the exact call refresh() blocks on
 
 rule("3. LibraryReader.readAll()  (this is what MatchEngine blocks on)")
