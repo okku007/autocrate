@@ -47,6 +47,60 @@ public struct GetSongBpmClient: FeatureProvider {
         enum CodingKeys: String, CodingKey { case tempo; case keyOf = "key_of" }
     }
 
+    /// Catalog discovery: GetSongBPM `/tempo/` + `/key/` search for fresh candidates
+    /// (not necessarily in the user's library). Genre is unknown here (nil).
+    ///
+    /// NOTE: the `/tempo/` and `/key/` response shapes must be confirmed against a live call;
+    /// adjust the decode types to match.
+    public func discover(targetBPM: Double, camelot: CamelotKey) async -> [Track] {
+        async let byTempo = searchList(path: "tempo", paramName: "bpm", value: String(format: "%.0f", targetBPM))
+        async let byKey   = searchList(path: "key",   paramName: "key", value: camelot.description)
+        let combined = await byTempo + byKey
+        var seen = Set<String>()
+        var out: [Track] = []
+        for t in combined where seen.insert(t.id).inserted { out.append(t) }
+        return out
+    }
+
+    private struct DiscoverItem: Decodable {
+        let tempo: String?
+        let keyOf: String?
+        let songTitle: String?
+        let artist: Artist?
+        struct Artist: Decodable { let name: String? }
+        enum CodingKeys: String, CodingKey {
+            case tempo
+            case keyOf = "key_of"
+            case songTitle = "song_title"
+            case artist
+        }
+    }
+    private struct DiscoverResponse: Decodable {
+        let tempo: [DiscoverItem]?
+        let key: [DiscoverItem]?
+    }
+
+    private func searchList(path: String, paramName: String, value: String) async -> [Track] {
+        guard let v = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://api.getsong.co/\(path)/?api_key=\(apiKey)&\(paramName)=\(v)")
+        else { return [] }
+        guard let (data, resp) = try? await session.data(from: url),
+              (resp as? HTTPURLResponse)?.statusCode == 200,
+              let decoded = try? JSONDecoder().decode(DiscoverResponse.self, from: data)
+        else { return [] }
+
+        let items = (decoded.tempo ?? []) + (decoded.key ?? [])
+        return items.compactMap { item in
+            guard let title = item.songTitle, let artist = item.artist?.name else { return nil }
+            return Track(
+                id: "\(artist.lowercased().trimmingCharacters(in: .whitespaces))|\(title.lowercased().trimmingCharacters(in: .whitespaces))",
+                title: title, artist: artist, genre: nil,
+                bpm: item.tempo.flatMap(Double.init),
+                camelot: item.keyOf.flatMap { KeyToCamelot.camelot(forMusicalKey: $0) }
+            )
+        }
+    }
+
     private func search(artist: String, title: String) async -> Song? {
         let lookup = "song:\(title) artist:\(artist)"
         guard let q = lookup.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),

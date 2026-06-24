@@ -20,4 +20,16 @@ public struct CandidatePipeline {
         }
         return Ranker.rank(scored)
     }
+
+    /// Discover candidates carry no library genre tag; gate on BPM + Camelot only.
+    public func shortlistDiscover(seed: Track, candidates: [Track]) -> [ScoredCandidate] {
+        guard let seedBPM = seed.bpm, let seedKey = seed.camelot else { return [] }
+        let scored: [ScoredCandidate] = candidates.compactMap { c in
+            guard c.id != seed.id, let bpm = c.bpm, let key = c.camelot,
+                  let bpmMatch = BpmBand.evaluate(seedBPM: seedBPM, candidateBPM: bpm),
+                  let relation = CamelotWheel.relation(seed: seedKey, candidate: key) else { return nil }
+            return ScoredCandidate(track: c, relation: relation, bpm: bpmMatch, score: 0)
+        }
+        return Ranker.rank(scored)
+    }
 }
