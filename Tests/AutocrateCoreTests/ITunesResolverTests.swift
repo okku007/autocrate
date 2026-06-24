@@ -15,4 +15,11 @@ final class ITunesResolverTests: XCTestCase {
         let json = #"{"resultCount":0,"results":[]}"#.data(using: .utf8)!
         XCTAssertNil(iTunesResolver.parse(json))
     }
+    func test_parsesPreviewUrl() {
+        let json = """
+        {"results":[{"trackName":"Strobe","artistName":"deadmau5","trackViewUrl":"https://music.apple.com/x","previewUrl":"https://audio-ssl.itunes.apple.com/x.m4a"}]}
+        """.data(using: .utf8)!
+        XCTAssertEqual(iTunesResolver.parse(json)?.previewUrl,
+                       URL(string: "https://audio-ssl.itunes.apple.com/x.m4a"))
+    }
 }

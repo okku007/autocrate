@@ -5,10 +5,13 @@ public struct CatalogMatch: Equatable {
     public let title: String
     public let artist: String
     public let appleMusicURL: URL
-    public init(title: String, artist: String, appleMusicURL: URL) {
+    /// Apple's free ~30s preview clip (DRM-free .m4a), used for on-device DSP feature extraction.
+    public let previewUrl: URL?
+    public init(title: String, artist: String, appleMusicURL: URL, previewUrl: URL? = nil) {
         self.title = title
         self.artist = artist
         self.appleMusicURL = appleMusicURL
+        self.previewUrl = previewUrl
     }
 }
 
@@ -34,11 +37,15 @@ public struct iTunesResolver: CatalogResolver {
 
     public static func parse(_ data: Data) -> CatalogMatch? {
         struct Response: Decodable {
-            struct Result: Decodable { let trackName: String; let artistName: String; let trackViewUrl: String }
+            struct Result: Decodable {
+                let trackName: String; let artistName: String; let trackViewUrl: String
+                let previewUrl: String?
+            }
             let results: [Result]
         }
         guard let r = try? JSONDecoder().decode(Response.self, from: data),
               let first = r.results.first, let url = URL(string: first.trackViewUrl) else { return nil }
-        return CatalogMatch(title: first.trackName, artist: first.artistName, appleMusicURL: url)
+        return CatalogMatch(title: first.trackName, artist: first.artistName, appleMusicURL: url,
+                            previewUrl: first.previewUrl.flatMap(URL.init(string:)))
     }
 }
