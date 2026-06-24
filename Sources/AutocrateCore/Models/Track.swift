@@ -5,7 +5,7 @@ public enum LookupState: String, Codable { case found, unsure, miss }
 
 /// A track — from the library or the catalog. Features (`bpm`, `camelot`) are nil
 /// until hydrated from the cache.
-public struct Track: Equatable, Identifiable {
+public struct Track: Equatable, Identifiable, Sendable {
     public let id: String
     public let title: String
     public let artist: String

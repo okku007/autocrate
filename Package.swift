@@ -6,7 +6,8 @@ let package = Package(
     platforms: [.macOS(.v13)],
     products: [
         .library(name: "AutocrateCore", targets: ["AutocrateCore"]),
-        .library(name: "AutocrateAppKit", targets: ["AutocrateAppKit"])
+        .library(name: "AutocrateAppKit", targets: ["AutocrateAppKit"]),
+        .executable(name: "autocrate-probe", targets: ["autocrate-probe"])
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0")
@@ -21,6 +22,12 @@ let package = Package(
         .target(
             name: "AutocrateAppKit",
             dependencies: ["AutocrateCore"]
+        ),
+        // Headless integration probe: exercises the live ScriptingBridge / pipeline path
+        // without the menu-bar UI, timing each stage to locate blocking. Not shipped.
+        .executableTarget(
+            name: "autocrate-probe",
+            dependencies: ["AutocrateAppKit", "AutocrateCore"]
         ),
         .testTarget(
             name: "AutocrateCoreTests",

@@ -1,6 +1,6 @@
 /// A Camelot-wheel key: a number 1...12 and a letter A (minor) or B (major).
-public struct CamelotKey: Equatable, CustomStringConvertible {
-    public enum Letter: String { case a = "A", b = "B" }
+public struct CamelotKey: Equatable, CustomStringConvertible, Sendable {
+    public enum Letter: String, Sendable { case a = "A", b = "B" }
     public let number: Int
     public let letter: Letter
 

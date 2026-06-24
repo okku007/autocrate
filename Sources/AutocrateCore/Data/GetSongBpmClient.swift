@@ -42,7 +42,17 @@ public struct GetSongBpmClient: FeatureProvider {
 
     // MARK: - Network
 
-    private struct SearchResponse: Decodable { let search: [Song]? }
+    private struct SearchResponse: Decodable {
+        let search: [Song]?
+        enum CodingKeys: String, CodingKey { case search }
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            // On a hit GetSongBPM returns `"search": [ … ]` (array); on no result it returns
+            // `"search": {"error":"no result"}` (an OBJECT). Decoding the object into [Song] throws
+            // "isn't in the correct format", so accept only the array form — anything else → no songs.
+            search = try? c.decode([Song].self, forKey: .search)
+        }
+    }
     private struct Song: Decodable {
         let tempo: String?
         let keyOf: String?

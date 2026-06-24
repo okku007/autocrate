@@ -28,6 +28,8 @@ public struct MenuPanelView: View {
             CenteredMessage("nothing playing")
         case .permissionDenied:
             CenteredMessage("grant Automation access to Music in\nSystem Settings → Privacy & Security")
+        case .preparing(let s):
+            VStack(spacing: 0) { SeedHeader(seed: s); ProcessingBanner() }
         case .seedMiss(let s):
             VStack(spacing: 0) { SeedHeader(seed: s); CenteredMessage("no BPM/key data for this track") }
         case .noMatches(let s):

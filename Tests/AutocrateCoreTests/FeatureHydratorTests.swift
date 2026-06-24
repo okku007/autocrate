@@ -52,4 +52,18 @@ final class FeatureHydratorTests: XCTestCase {
         let out = await hydrator.hydrate([track("x")])
         XCTAssertNil(out.first?.bpm)
     }
+    func test_progressiveStreamYieldsMonotonicScanAndFullFinalResult() async throws {
+        let cache = try FeatureCache(path: ":memory:")
+        let provider = FakeProvider(["a": 120, "b": 130])
+        let hydrator = FeatureHydrator(cache: cache, provider: provider, cap: 10, throttle: .zero)
+        var lastScanned = 0
+        var finalTracks: [Track] = []
+        for await (scanned, tracks) in hydrator.hydrateProgressively([track("a"), track("b")]) {
+            XCTAssertGreaterThanOrEqual(scanned, lastScanned)   // scan count never goes backwards
+            lastScanned = scanned
+            finalTracks = tracks
+        }
+        XCTAssertEqual(lastScanned, 2)
+        XCTAssertEqual(finalTracks.map(\.bpm), [120, 130])      // cumulative, fully hydrated at the end
+    }
 }
