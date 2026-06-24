@@ -29,10 +29,15 @@ public struct CatalogUnavailable: Error { public init() {} }
 public struct iTunesResolver: CatalogResolver {
     public var session: URLSession
     public var limiter: RateLimiter
+    public var breaker: CircuitBreaker
 
     /// The iTunes Search API rate-limits ~20 requests/min per IP (HTTP 429 past that). One process-
     /// wide limiter at ~3s/call keeps every resolve — interactive, pre-warm, and discover — under it.
     public static let sharedLimiter = RateLimiter(minInterval: .seconds(3))
+
+    /// One process-wide breaker. A single 403/429 halts ALL iTunes calls for 30 min so we stop
+    /// hammering an already-blocked IP — the behavior that escalates a rate-limit into a long ban.
+    public static let sharedBreaker = CircuitBreaker(cooldown: .seconds(1800))
 
     /// Default session with a finite request timeout so a stalled call fails fast instead of
     /// hanging on URLSession.shared's 60s default.
@@ -44,9 +49,11 @@ public struct iTunesResolver: CatalogResolver {
     }()
 
     public init(session: URLSession = iTunesResolver.defaultSession,
-                limiter: RateLimiter = iTunesResolver.sharedLimiter) {
+                limiter: RateLimiter = iTunesResolver.sharedLimiter,
+                breaker: CircuitBreaker = iTunesResolver.sharedBreaker) {
         self.session = session
         self.limiter = limiter
+        self.breaker = breaker
     }
 
     public func resolve(artist: String, title: String) async throws -> CatalogMatch? {
@@ -56,15 +63,21 @@ public struct iTunesResolver: CatalogResolver {
         guard let q = term.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://itunes.apple.com/search?media=music&entity=song&limit=5&term=\(q)")
         else { return nil }
+
+        // Breaker open (recent 403/429) → don't even make the call; let the IP cool down.
+        if await breaker.isOpen { throw CatalogUnavailable() }
         await limiter.acquire()   // stay under the iTunes rate limit (shared across all callers)
 
         let data: Data, resp: URLResponse
         do { (data, resp) = try await session.data(from: url) }
-        catch { throw CatalogUnavailable() }                       // network/timeout/offline
+        catch { await breaker.recordFailure(); throw CatalogUnavailable() }   // network/timeout/offline
         let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
-        // 403/429 = rate-limited/blocked, 5xx = server hiccup → transient, don't let it cache a miss.
-        if code == 403 || code == 429 || (500...599).contains(code) { throw CatalogUnavailable() }
-        guard code == 200 else { return nil }                      // other non-200 → genuine no-match
+        // 403/429 = rate-limited/blocked, 5xx = server hiccup → trip the breaker, halt further calls.
+        if code == 403 || code == 429 || (500...599).contains(code) {
+            await breaker.recordFailure(); throw CatalogUnavailable()
+        }
+        guard code == 200 else { return nil }     // other non-200 → genuine no-match (don't trip)
+        await breaker.recordSuccess()             // healthy response → close the breaker
         return Self.parse(data, artist: artist, title: title)
     }
 
