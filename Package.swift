@@ -7,7 +7,8 @@ let package = Package(
     products: [
         .library(name: "AutocrateCore", targets: ["AutocrateCore"]),
         .library(name: "AutocrateAppKit", targets: ["AutocrateAppKit"]),
-        .executable(name: "autocrate-probe", targets: ["autocrate-probe"])
+        .executable(name: "autocrate-probe", targets: ["autocrate-probe"]),
+        .executable(name: "autocrate-dsp-probe", targets: ["autocrate-dsp-probe"])
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0")
@@ -28,6 +29,12 @@ let package = Package(
         .executableTarget(
             name: "autocrate-probe",
             dependencies: ["AutocrateAppKit", "AutocrateCore"]
+        ),
+        // Phase 0 gate: runs the on-device DSP estimators against real Apple preview clips and
+        // compares to known BPM/key. Pass the clip dir via CLIPS env or argv. Not shipped.
+        .executableTarget(
+            name: "autocrate-dsp-probe",
+            dependencies: ["AutocrateCore"]
         ),
         .testTarget(
             name: "AutocrateCoreTests",
