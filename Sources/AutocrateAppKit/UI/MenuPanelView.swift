@@ -17,9 +17,17 @@ public struct MenuPanelView: View {
         }
         .frame(width: 340)
         .background(Theme.bg)
-        // Not `.task` — that cancels the in-flight refresh when the panel is dismissed, which is the
-        // restart-on-reopen we're fixing. The engine owns the Task; this only nudges it.
-        .onAppear { engine.refreshIfNeeded() }
+        // Poll now-playing while the panel is open so it follows track changes live. This `.task`
+        // is cancelled on dismiss (polling stops when closed) — but it only *nudges* the engine;
+        // the actual refresh runs in the engine's own retained Task, which is NOT cancelled here,
+        // so closing mid-scan still doesn't restart work. refreshIfNeeded() is a cheap local read
+        // that no-ops unless the track actually changed.
+        .task {
+            while !Task.isCancelled {
+                engine.refreshIfNeeded()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
