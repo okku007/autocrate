@@ -220,7 +220,7 @@ sequenceDiagram
     R-->>V: re-query for the new song
 
     U->>V: dismiss panel
-    Note over V: poll .task cancelled; engine's refresh Task keeps running
+    Note over V: poll .task cancelled — engine refresh Task keeps running
 ```
 
 ---
