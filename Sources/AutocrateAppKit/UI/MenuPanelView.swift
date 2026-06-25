@@ -31,20 +31,20 @@ public struct MenuPanelView: View {
         case .permissionDenied:
             CenteredMessage("grant Automation access to Music in\nSystem Settings → Privacy & Security")
         case .preparing(let s):
-            VStack(spacing: 0) { SeedHeader(seed: s); ProcessingBanner() }
+            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }); ProcessingBanner() }
         case .seedMiss(let s):
-            VStack(spacing: 0) { SeedHeader(seed: s); CenteredMessage("no BPM/key data for this track") }
+            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }); CenteredMessage("no BPM/key data for this track") }
         case .noMatches(let s):
-            VStack(spacing: 0) { SeedHeader(seed: s); CenteredMessage("no compatible tracks found") }
+            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }); CenteredMessage("no compatible tracks found") }
         case .indexing(let s, let shown, let total, let hydrated):
             VStack(spacing: 0) {
-                SeedHeader(seed: s)
+                SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() })
                 IndexingBanner(hydrated: hydrated, total: total)
                 list(library: shown, discover: [])
             }
         case .ready(let s, let matches, let discover):
             VStack(spacing: 0) {
-                SeedHeader(seed: s)
+                SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() })
                 list(library: matches, discover: discover)
             }
         }
