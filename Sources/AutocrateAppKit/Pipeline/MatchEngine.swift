@@ -26,6 +26,14 @@ public final class MatchEngine: ObservableObject {
     private let hydrator: FeatureHydrator
     private let apiKey: String
 
+    /// Retained so closing the panel mid-scan does not cancel hydration (the poll loop is the
+    /// view's; this Task is the engine's). Superseded — cancelled and replaced — when the track
+    /// changes. nil ⇔ idle.
+    private var refreshTask: Task<Void, Never>?
+    private let manualCooldown = Cooldown(interval: 60)
+    /// Lives on the persisted engine so reopening the panel can't reset the manual-refresh limit.
+    private var lastManualRefresh: Date?
+
     public init() {
         let cache = try! FeatureCache(path: Self.defaultCachePath())
         self.cache = cache
@@ -47,6 +55,53 @@ public final class MatchEngine: ObservableObject {
         )
     }
 
+    /// Polled while the panel is open (and called on open). Re-queries only when the now-playing
+    /// track differs from what's on screen — same track is a no-op, so polling is cheap (one local
+    /// now-playing read). A genuine track change supersedes any in-flight refresh for the old track.
+    public func refreshIfNeeded() {
+        let newSeedID: String?
+        if case .playing(let t) = nowPlaying.read() { newSeedID = t.id } else { newSeedID = nil }
+        switch RefreshDecision.evaluate(currentSeedID: currentSeedID, newSeedID: newSeedID) {
+        case .skip: return
+        case .refresh: startRefresh()
+        }
+    }
+
+    /// The manual refresh button. Bypasses the track-change gate; still bounded by the 60s cooldown
+    /// and by any in-flight refresh.
+    public func forceRefresh() {
+        guard refreshTask == nil else { return }
+        guard manualCooldown.allows(now: Date(), last: lastManualRefresh) else { return }
+        lastManualRefresh = Date()
+        startRefresh()
+    }
+
+    /// Drives the refresh button's enabled state.
+    public var canManualRefresh: Bool {
+        refreshTask == nil && manualCooldown.allows(now: Date(), last: lastManualRefresh)
+    }
+
+    /// id of the seed currently on screen, or nil when no seed is shown.
+    private var currentSeedID: String? {
+        switch state {
+        case .preparing(let s), .seedMiss(let s), .noMatches(let s): return s.id
+        case .indexing(let s, _, _, _): return s.id
+        case .ready(let s, _, _): return s.id
+        case .loading, .nothingPlaying, .permissionDenied: return nil
+        }
+    }
+
+    private func startRefresh() {
+        refreshTask?.cancel()                 // supersede any in-flight refresh for the old track
+        refreshTask = Task { [weak self] in
+            await self?.refresh()
+            // Only the live (non-superseded) task clears the handle; a cancelled one must not
+            // null out its replacement.
+            guard let self, !Task.isCancelled else { return }
+            self.refreshTask = nil
+        }
+    }
+
     public func refresh() async {
         state = .loading
         switch nowPlaying.read() {
@@ -59,25 +114,32 @@ public final class MatchEngine: ObservableObject {
             state = .preparing(seed: rawSeed)
 
             let seed = (await hydrator.hydrate([rawSeed])).first ?? rawSeed
+            // Cancelled ⇒ the track changed under us; bail before touching state so a stale
+            // refresh can't clobber the one now running for the new track.
+            if Task.isCancelled { return }
             guard seed.bpm != nil, seed.camelot != nil else { state = .seedMiss(seed); return }
             state = .preparing(seed: seed)   // header now carries the seed's BPM/key
 
             let pool = (await library.readAllAsync()).filter {
                 ($0.genre?.lowercased()).map(CandidatePipeline.allowlist.contains) ?? false
             }
+            if Task.isCancelled { return }
             guard !pool.isEmpty else { state = .noMatches(seed); return }
             state = .indexing(seed: seed, shown: [], total: pool.count, hydrated: 0)
 
             // Stream hydration: surface matches and a climbing scan count as the library warms.
             var hydrated: [Track] = []
             for await (scanned, tracks) in hydrator.hydrateProgressively(pool) {
+                if Task.isCancelled { return }   // stop the stale scan the instant the track changes
                 hydrated = tracks
                 let matches = pipeline.shortlist(seed: seed, candidates: tracks)
                 state = .indexing(seed: seed, shown: matches, total: pool.count, hydrated: scanned)
             }
 
+            if Task.isCancelled { return }
             let matches = pipeline.shortlist(seed: seed, candidates: hydrated)
             let discover = await discover(seed: seed, libraryIds: Set(hydrated.map(\.id)))
+            if Task.isCancelled { return }
             if matches.isEmpty && discover.isEmpty {
                 state = .noMatches(seed)
             } else {
@@ -95,6 +157,7 @@ public final class MatchEngine: ObservableObject {
 
         var confirmed: [Track] = []
         for t in raw where !libraryIds.contains(t.id) {
+            if Task.isCancelled { break }   // track changed — don't burn rate-limited iTunes calls
             if let match = try? await resolver.resolve(artist: t.artist, title: t.title) {
                 confirmed.append(Track(id: t.id, title: t.title, artist: t.artist, genre: nil,
                                        bpm: t.bpm, camelot: t.camelot, appleMusicURL: match.appleMusicURL))

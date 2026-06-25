@@ -1,14 +1,32 @@
 import SwiftUI
 import AutocrateCore
 
-/// The now-playing seed: title/artist + its BPM and Camelot.
+/// The now-playing seed: title/artist + its BPM and Camelot, with a manual refresh control.
 public struct SeedHeader: View {
     let seed: Track
-    public init(seed: Track) { self.seed = seed }
+    let canRefresh: Bool
+    let onRefresh: () -> Void
+
+    public init(seed: Track, canRefresh: Bool = false, onRefresh: @escaping () -> Void = {}) {
+        self.seed = seed
+        self.canRefresh = canRefresh
+        self.onRefresh = onRefresh
+    }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("NOW PLAYING").font(Fonts.body(9)).foregroundStyle(Theme.textSecondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text("NOW PLAYING").font(Fonts.body(9)).foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Button(action: onRefresh) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(canRefresh ? Theme.accent : Theme.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canRefresh)
+                .help("Refresh (rate-limited)")
+            }
             Text(seed.title).font(Fonts.body(13)).foregroundStyle(Theme.textPrimary)
             Text(seed.artist).font(Fonts.body(11)).foregroundStyle(Theme.textSecondary)
             HStack(spacing: 10) {
