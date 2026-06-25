@@ -13,7 +13,8 @@ public struct Cooldown: Equatable, Sendable {
         return now.timeIntervalSince(last) >= interval
     }
 
-    /// Seconds until the next action is allowed; 0 if allowed now.
+    /// Seconds until the next action is allowed; 0 if allowed now. Reserved for a future
+    /// live countdown hint (e.g. a "Refresh available in 42s" tooltip) — not yet wired to UI.
     public func remaining(now: Date, last: Date?) -> TimeInterval {
         guard let last else { return 0 }
         return max(0, interval - now.timeIntervalSince(last))
