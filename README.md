@@ -22,7 +22,7 @@ the setlist AutoMix runs on. v1 is show-only: you add picks to your own queue.
 ## Build & test
 
 ```sh
-swift test          # AutocrateCore unit tests (48)
+swift test          # AutocrateCore unit tests (110)
 swift build         # both library targets
 xcodegen generate   # regenerate Autocrate.xcodeproj from project.yml
 ```
@@ -31,10 +31,13 @@ Open `Autocrate.xcodeproj` and ⌘R to run. See [`App/README.md`](App/README.md)
 for the full Xcode setup (fonts, API key, Automation permission) and the manual
 verification checklist.
 
-## Design docs
+## Documentation
 
-- Spec: [`docs/superpowers/specs/2026-06-24-autocrate-v1-design.md`](docs/superpowers/specs/2026-06-24-autocrate-v1-design.md)
-- Plan: [`docs/superpowers/plans/2026-06-24-autocrate-v1.md`](docs/superpowers/plans/2026-06-24-autocrate-v1.md)
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — how Autocrate works end to end: the three layers,
+  the now-playing → hydrate → rank → discover pipeline, the panel state machine, and the
+  live-follow refresh lifecycle, with diagrams.
+- [`App/README.md`](App/README.md) — full Xcode setup (fonts, API key, Automation permission)
+  and the manual verification checklist.
 
 ## Setup note
 
