@@ -26,6 +26,13 @@ public final class MatchEngine: ObservableObject {
     private let hydrator: FeatureHydrator
     private let apiKey: String
 
+    /// Retained so closing the panel mid-scan does not cancel hydration, and so a second open
+    /// can't launch a duplicate refresh. nil ⇔ idle.
+    private var refreshTask: Task<Void, Never>?
+    private let manualCooldown = Cooldown(interval: 60)
+    /// Lives on the persisted engine so reopening the panel can't reset the manual-refresh limit.
+    private var lastManualRefresh: Date?
+
     public init() {
         let cache = try! FeatureCache(path: Self.defaultCachePath())
         self.cache = cache
@@ -45,6 +52,49 @@ public final class MatchEngine: ObservableObject {
             throttle: .zero,                                     // iTunes pacing is handled by the resolver's RateLimiter
             acceptsCached: HybridFeatureProvider.acceptsCached   // re-fetch stale legacy rows
         )
+    }
+
+    /// Called on every panel open. Re-queries only when the now-playing track changed (or the panel
+    /// had no live results); otherwise keeps the current state on screen instantly.
+    public func refreshIfNeeded() {
+        guard refreshTask == nil else { return }
+        let newSeedID: String?
+        if case .playing(let t) = nowPlaying.read() { newSeedID = t.id } else { newSeedID = nil }
+        switch RefreshDecision.evaluate(currentSeedID: currentSeedID, newSeedID: newSeedID) {
+        case .skip: return
+        case .refresh: startRefresh()
+        }
+    }
+
+    /// The manual refresh button. Bypasses the track-change gate; still bounded by the 60s cooldown
+    /// and by any in-flight refresh.
+    public func forceRefresh() {
+        guard refreshTask == nil else { return }
+        guard manualCooldown.allows(now: Date(), last: lastManualRefresh) else { return }
+        lastManualRefresh = Date()
+        startRefresh()
+    }
+
+    /// Drives the refresh button's enabled state.
+    public var canManualRefresh: Bool {
+        refreshTask == nil && manualCooldown.allows(now: Date(), last: lastManualRefresh)
+    }
+
+    /// id of the seed currently on screen, or nil when no seed is shown.
+    private var currentSeedID: String? {
+        switch state {
+        case .preparing(let s), .seedMiss(let s), .noMatches(let s): return s.id
+        case .indexing(let s, _, _, _): return s.id
+        case .ready(let s, _, _): return s.id
+        case .loading, .nothingPlaying, .permissionDenied: return nil
+        }
+    }
+
+    private func startRefresh() {
+        refreshTask = Task { [weak self] in
+            await self?.refresh()
+            self?.refreshTask = nil
+        }
     }
 
     public func refresh() async {
