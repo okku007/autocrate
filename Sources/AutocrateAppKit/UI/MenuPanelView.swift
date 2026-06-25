@@ -4,10 +4,10 @@ import AutocrateCore
 
 /// The menu-bar panel. Drives MatchEngine and renders each PanelState.
 public struct MenuPanelView: View {
-    @StateObject private var engine = MatchEngine()
+    @ObservedObject private var engine: MatchEngine
     private let library = LibraryReader()
 
-    public init() {}
+    public init(engine: MatchEngine) { self._engine = ObservedObject(wrappedValue: engine) }
 
     public var body: some View {
         VStack(spacing: 0) {
@@ -17,7 +17,9 @@ public struct MenuPanelView: View {
         }
         .frame(width: 340)
         .background(Theme.bg)
-        .task { await engine.refresh() }
+        // Not `.task` — that cancels the in-flight refresh when the panel is dismissed, which is the
+        // restart-on-reopen we're fixing. The engine owns the Task; this only nudges it.
+        .onAppear { engine.refreshIfNeeded() }
     }
 
     @ViewBuilder private var content: some View {
