@@ -80,4 +80,24 @@ public final class FeatureCache {
     public func fetch(id: String) throws -> CachedFeature? {
         try dbQueue.read { db in try CachedFeature.fetchOne(db, key: id) }
     }
+
+    public struct Coverage: Equatable {
+        public let rows: Int
+        public let withCamelot: Int
+        public let withBpm: Int
+        public init(rows: Int, withCamelot: Int, withBpm: Int) {
+            self.rows = rows; self.withCamelot = withCamelot; self.withBpm = withBpm
+        }
+    }
+
+    /// Row counts for a scan summary: total rows, rows with a Camelot key, rows with a BPM.
+    public func coverage() throws -> Coverage {
+        try dbQueue.read { db in
+            Coverage(
+                rows: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM feature_cache") ?? 0,
+                withCamelot: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM feature_cache WHERE camelot IS NOT NULL") ?? 0,
+                withBpm: try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM feature_cache WHERE bpm IS NOT NULL") ?? 0
+            )
+        }
+    }
 }
