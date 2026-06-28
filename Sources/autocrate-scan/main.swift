@@ -40,6 +40,9 @@ print("Reading library …")
 var pool = LibraryReader().readAll()
 if let genre { pool = pool.filter { ($0.genre?.lowercased()) == genre } }
 print("\(pool.count) tracks to consider (genre filter: \(genre ?? "none")).")
+if pool.isEmpty {
+    print("No tracks found. If your library isn't empty, grant Automation (Music) access to your terminal in System Settings → Privacy & Security → Automation, then re-run.")
+}
 print("iTunes pacing is ~3s/track; a full cold scan can take 1.5-2 hrs. Ctrl-C any time — it resumes.")
 
 // On-device DSP over Apple's preview clips, resolved via the existing iTunesResolver (3s limiter + breaker).
@@ -51,7 +54,7 @@ let provider = PreviewDSPProvider(resolver: iTunesResolver())
 let hydrator = FeatureHydrator(
     cache: cache, provider: provider, cap: .max, throttle: .zero,
     acceptsCached: { f in
-        guard ["dsp", "dsp+api"].contains(f.source) else { return false }
+        guard HybridFeatureProvider.dspSources.contains(f.source) else { return false }
         return retryMisses ? f.state == .found : true
     })
 

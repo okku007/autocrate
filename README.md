@@ -22,7 +22,7 @@ the setlist AutoMix runs on. v1 is show-only: you add picks to your own queue.
 ## Build & test
 
 ```sh
-swift test          # AutocrateCore unit tests (110)
+swift test          # AutocrateCore unit tests (116)
 swift build         # both library targets
 xcodegen generate   # regenerate Autocrate.xcodeproj from project.yml
 ```
