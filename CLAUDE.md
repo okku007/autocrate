@@ -15,7 +15,7 @@ Autocrate curates the setlist. v1 is show-only.
 swift test                              # AutocrateCore unit tests (all logic lives here)
 swift test --filter RankerTests         # single test class
 swift test --filter RankerTests/testExactBeatsShifted   # single test method
-swift build                             # both library targets + both probes
+swift build                             # both library targets + all three executables (scan + 2 probes)
 xcodegen generate                       # regenerate Autocrate.xcodeproj from project.yml
 ```
 
