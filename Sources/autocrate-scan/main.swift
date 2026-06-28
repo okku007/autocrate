@@ -45,16 +45,15 @@ print("iTunes pacing is ~3s/track; a full cold scan can take 1.5-2 hrs. Ctrl-C a
 // On-device DSP over Apple's preview clips, resolved via the existing iTunesResolver (3s limiter + breaker).
 let provider = PreviewDSPProvider(resolver: iTunesResolver())
 
-// Skip rows already analyzed by DSP. With --retry-misses, only trust found rows (re-fetch misses).
-let acceptsCached: @Sendable (CachedFeature) -> Bool = { f in
-    guard ["dsp", "dsp+api"].contains(f.source) else { return false }
-    if retryMisses { return f.state.rawValue == "found" }
-    return true
-}
-
 // warmAll ignores cap/throttle (pacing is the resolver's job); values here are inert.
-let hydrator = FeatureHydrator(cache: cache, provider: provider,
-                               cap: .max, throttle: .zero, acceptsCached: acceptsCached)
+// Skip rows already analyzed by DSP; with --retry-misses, only trust found rows (re-fetch misses).
+// The predicate is inlined in the @Sendable parameter position so it's typed @Sendable contextually.
+let hydrator = FeatureHydrator(
+    cache: cache, provider: provider, cap: .max, throttle: .zero,
+    acceptsCached: { f in
+        guard ["dsp", "dsp+api"].contains(f.source) else { return false }
+        return retryMisses ? f.state == .found : true
+    })
 
 let start = Date()
 await hydrator.warmAll(pool, concurrency: concurrency) { t in
