@@ -28,6 +28,7 @@ xcodegen generate                       # regenerate Autocrate.xcodeproj from pr
 ### Probes (executable targets, not shipped)
 
 ```sh
+swift run autocrate-scan                # whole-library DSP scan → warms features.sqlite (run before the app)
 swift run autocrate-probe               # exercises the live ScriptingBridge + pipeline path, times each stage
 CLIPS=/tmp/clips swift run autocrate-dsp-probe   # DSP gate: runs estimators vs known clips, prints BPM/key
 ```
