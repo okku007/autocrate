@@ -8,7 +8,8 @@ let package = Package(
         .library(name: "AutocrateCore", targets: ["AutocrateCore"]),
         .library(name: "AutocrateAppKit", targets: ["AutocrateAppKit"]),
         .executable(name: "autocrate-probe", targets: ["autocrate-probe"]),
-        .executable(name: "autocrate-dsp-probe", targets: ["autocrate-dsp-probe"])
+        .executable(name: "autocrate-dsp-probe", targets: ["autocrate-dsp-probe"]),
+        .executable(name: "autocrate-scan", targets: ["autocrate-scan"])
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0")
@@ -35,6 +36,13 @@ let package = Package(
         .executableTarget(
             name: "autocrate-dsp-probe",
             dependencies: ["AutocrateCore"]
+        ),
+        // Whole-library feature scanner: reads the library, resolves preview clips via iTunes Search
+        // (paced + circuit-breaker guarded), runs on-device DSP, and warms features.sqlite. Run before
+        // launching the app for an instant, fully-populated panel. Resumable. Not shipped.
+        .executableTarget(
+            name: "autocrate-scan",
+            dependencies: ["AutocrateAppKit", "AutocrateCore"]
         ),
         .testTarget(
             name: "AutocrateCoreTests",
