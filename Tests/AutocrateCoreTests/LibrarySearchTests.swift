@@ -18,4 +18,20 @@ final class LibrarySearchTests: XCTestCase {
         let tracks = [t("1","Brightest Lights","Lane 8"), t("2","Atlas","Other")]
         XCTAssertEqual(LibrarySearch.filter(query: "lane", tracks: tracks).map(\.id), ["1"])
     }
+
+    func test_annotateSplitsAnalyzed() {
+        let tracks = [t("a","A","x"), t("b","B","y")]
+        let out = LibrarySearch.annotate(tracks: tracks, analyzedIDs: ["a"])
+        XCTAssertEqual(out.map(\.isAnalyzed), [true, false])
+    }
+    func test_newSongsAreTheUnanalyzed() {
+        let tracks = [t("a","A","x"), t("b","B","y")]
+        XCTAssertEqual(LibrarySearch.newSongs(tracks: tracks, analyzedIDs: ["a"]).map(\.id), ["b"])
+    }
+    func test_analyzedIdAbsentFromLibraryIsIgnored() {
+        let tracks = [t("a","A","x")]
+        let out = LibrarySearch.annotate(tracks: tracks, analyzedIDs: ["a","ghost"])
+        XCTAssertEqual(out.count, 1)
+        XCTAssertTrue(out[0].isAnalyzed)
+    }
 }
