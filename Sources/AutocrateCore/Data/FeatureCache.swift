@@ -100,4 +100,11 @@ public final class FeatureCache {
             )
         }
     }
+
+    /// All rows that carry a Camelot key — the tracks that can seed or rank in the desktop window.
+    public func analyzedFeatures() throws -> [CachedFeature] {
+        try dbQueue.read { db in
+            try CachedFeature.fetchAll(db, sql: "SELECT * FROM feature_cache WHERE camelot IS NOT NULL")
+        }
+    }
 }
