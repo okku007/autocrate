@@ -16,7 +16,7 @@ struct NewSongsCard: View {
                 .font(Fonts.body(10)).foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Text("autocrate-scan").font(Fonts.numerals(11)).foregroundStyle(Theme.accent)
+                Text("swift run autocrate-scan").font(Fonts.numerals(11)).foregroundStyle(Theme.accent)
                 Spacer()
                 Button(copied ? "Copied" : "Copy") { copyCommand() }
                     .buttonStyle(.plain).font(Fonts.body(10)).foregroundStyle(Theme.accent)
@@ -34,7 +34,7 @@ struct NewSongsCard: View {
 
     private func copyCommand() {
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("autocrate-scan", forType: .string)
+        NSPasteboard.general.setString("swift run autocrate-scan", forType: .string)
         copied = true
     }
 }
