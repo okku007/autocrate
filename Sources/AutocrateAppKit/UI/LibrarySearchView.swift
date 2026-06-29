@@ -5,6 +5,7 @@ import AutocrateCore
 public struct LibrarySearchView: View {
     @ObservedObject var engine: LibrarySearchEngine
     @State private var query = ""
+    @State private var filter: CategoryFilter = .all
 
     public init(engine: LibrarySearchEngine) { self.engine = engine }
 
@@ -30,10 +31,21 @@ public struct LibrarySearchView: View {
             if !engine.newSongs.isEmpty {
                 NewSongsCard(count: engine.newSongs.count)
             }
+            Picker("Show", selection: $filter) {
+                ForEach(CategoryFilter.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .font(Fonts.body(10))
             List {
-                section("SCANNED", engine.results.filter { $0.category == .scanned })
-                section("MISSED", engine.results.filter { $0.category == .missed })
-                section("NOT ANALYZED", engine.results.filter { $0.category == .notAnalyzed })
+                if filter.matches(.scanned) {
+                    section("SCANNED", engine.results.filter { $0.category == .scanned })
+                }
+                if filter.matches(.missed) {
+                    section("MISSED", engine.results.filter { $0.category == .missed })
+                }
+                if filter.matches(.notAnalyzed) {
+                    section("NOT ANALYZED", engine.results.filter { $0.category == .notAnalyzed })
+                }
             }
         }
         .padding(Theme.panelPadding)
@@ -105,6 +117,29 @@ private struct LibraryResultRow: View {
         case .scanned:     return nil
         case .missed:      return "no key found"
         case .notAnalyzed: return "not scanned"
+        }
+    }
+}
+
+/// Category filter for the search list. `.all` shows every section; the rest show one.
+private enum CategoryFilter: CaseIterable, Identifiable {
+    case all, scanned, missed, notAnalyzed
+    var id: Self { self }
+    var label: String {
+        switch self {
+        case .all:         return "All"
+        case .scanned:     return "Scanned"
+        case .missed:      return "Missed"
+        case .notAnalyzed: return "Not analyzed"
+        }
+    }
+    /// True when a section of `category` should be visible under this filter.
+    func matches(_ category: LibraryCategory) -> Bool {
+        switch self {
+        case .all:         return true
+        case .scanned:     return category == .scanned
+        case .missed:      return category == .missed
+        case .notAnalyzed: return category == .notAnalyzed
         }
     }
 }
