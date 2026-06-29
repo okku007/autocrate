@@ -41,7 +41,9 @@ public struct LibraryReader: Sendable {
                               title: title, artist: artist, genre: genre, bpm: nil, camelot: nil)
             pairs.append((track, added))
         }
-        return pairs.sorted { $0.1 > $1.1 }.map(\.0)
+        // Apple Music can list the same song more than once (album + single, synced copies); those
+        // collapse to one normalized id. Dedupe so consumers (and SwiftUI ForEach) see unique ids.
+        return LibrarySearch.dedupeByID(pairs.sorted { $0.1 > $1.1 }.map(\.0))
     }
 
     /// Reveals a library track in Music.app (matched by normalized id).

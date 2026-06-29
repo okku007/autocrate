@@ -42,4 +42,12 @@ final class LibrarySearchTests: XCTestCase {
         XCTAssertEqual(out.count, 1)
         XCTAssertEqual(out[0].category, .scanned)
     }
+
+    func test_dedupeByIDKeepsFirstOccurrenceInOrder() {
+        // Same normalized id ("a") appears twice — a duplicate library row. Collapse to the first.
+        let tracks = [t("a","First","x"), t("b","B","y"), t("a","Second","z")]
+        let out = LibrarySearch.dedupeByID(tracks)
+        XCTAssertEqual(out.map(\.id), ["a", "b"])
+        XCTAssertEqual(out.first?.title, "First")
+    }
 }

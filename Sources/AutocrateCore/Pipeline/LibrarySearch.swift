@@ -54,4 +54,13 @@ public extension LibrarySearch {
                             missedIDs: Set<String>) -> [Track] {
         tracks.filter { !analyzedIDs.contains($0.id) && !missedIDs.contains($0.id) }
     }
+
+    /// Collapse duplicate library rows that share a normalized id (same artist+title appears more
+    /// than once in the Music library), keeping the first occurrence and preserving order. The
+    /// feature cache is keyed by this id, so duplicates are the same logical track — and duplicate
+    /// ids break SwiftUI `ForEach`/`List` identity (undefined results / hangs on large lists).
+    static func dedupeByID(_ tracks: [Track]) -> [Track] {
+        var seen = Set<String>()
+        return tracks.filter { seen.insert($0.id).inserted }
+    }
 }
