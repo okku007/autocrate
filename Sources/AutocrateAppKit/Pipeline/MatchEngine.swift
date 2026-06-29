@@ -34,8 +34,8 @@ public final class MatchEngine: ObservableObject {
     /// Lives on the persisted engine so reopening the panel can't reset the manual-refresh limit.
     private var lastManualRefresh: Date?
 
-    public init() {
-        let cache = try! FeatureCache(path: Self.defaultCachePath())
+    public init(cache injectedCache: FeatureCache? = nil) {
+        let cache = injectedCache ?? (try! FeatureCache(path: Self.defaultCachePath()))
         self.cache = cache
         self.apiKey = Secrets.getSongBpmApiKey
         // Hybrid, key-dominant: Camelot always from on-device DSP of Apple's preview clips;
@@ -166,7 +166,7 @@ public final class MatchEngine: ObservableObject {
         return pipeline.shortlistDiscover(seed: seed, candidates: confirmed)
     }
 
-    private static func defaultCachePath() -> String {
+    public static func defaultCachePath() -> String {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Autocrate", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
