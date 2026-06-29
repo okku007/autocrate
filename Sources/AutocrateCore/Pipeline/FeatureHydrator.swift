@@ -1,5 +1,15 @@
 import Foundation
 
+/// Running counts emitted by `FeatureHydrator.warmAll` for progress display.
+public struct ScanTally: Sendable, Equatable {
+    public let scanned, total, found, missed: Int
+    public init(scanned: Int, total: Int, found: Int, missed: Int) {
+        self.scanned = scanned; self.total = total; self.found = found; self.missed = missed
+    }
+}
+
+private enum WarmOutcome { case found, missed, skippedCached }
+
 /// Lazily fills track features from the cache, fetching misses via the provider.
 /// Capped per call and throttled, so a cold cache never hammers the API.
 public actor FeatureHydrator {
@@ -81,22 +91,36 @@ public actor FeatureHydrator {
     /// Pre-warms the cache for the whole library, ignoring `cap`/`throttle` and fetching up to
     /// `concurrency` tracks at once. Cache-first (skips rows `acceptsCached` trusts). Intended to
     /// run in the background after launch so later panel opens hit a warm cache and render instantly.
-    public func warmAll(_ tracks: [Track], concurrency: Int = 8) async {
+    /// `onProgress` is called after each track completes with the running tally.
+    public func warmAll(_ tracks: [Track], concurrency: Int = 8,
+                        onProgress: @Sendable (ScanTally) -> Void = { _ in }) async {
+        let total = tracks.count
+        var scanned = 0, found = 0, missed = 0
         var iterator = tracks.makeIterator()
-        await withTaskGroup(of: Void.self) { group in
+        await withTaskGroup(of: WarmOutcome.self) { group in
             func addNext() {
                 guard let t = iterator.next() else { return }
                 group.addTask { await self.warmOne(t) }
             }
-            for _ in 0..<max(1, min(concurrency, tracks.count)) { addNext() }
-            while await group.next() != nil { addNext() }
+            for _ in 0..<max(1, min(concurrency, total)) { addNext() }
+            while let outcome = await group.next() {
+                scanned += 1
+                switch outcome {
+                case .found: found += 1
+                case .missed: missed += 1
+                case .skippedCached: break
+                }
+                onProgress(ScanTally(scanned: scanned, total: total, found: found, missed: missed))
+                addNext()
+            }
         }
     }
 
-    private func warmOne(_ track: Track) async {
-        if let cached = try? cache.fetch(id: track.id), acceptsCached(cached) { return }
+    private func warmOne(_ track: Track) async -> WarmOutcome {
+        if let cached = try? cache.fetch(id: track.id), acceptsCached(cached) { return .skippedCached }
         let feature = await provider.lookup(artist: track.artist, title: track.title, id: track.id)
         if feature.state != .unavailable { try? cache.upsert(feature) }   // don't persist transient failures
+        return feature.state == .found ? .found : .missed
     }
 
     private func apply(_ f: CachedFeature, to track: Track) -> Track {

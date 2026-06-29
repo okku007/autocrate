@@ -15,7 +15,7 @@ Autocrate curates the setlist. v1 is show-only.
 swift test                              # AutocrateCore unit tests (all logic lives here)
 swift test --filter RankerTests         # single test class
 swift test --filter RankerTests/testExactBeatsShifted   # single test method
-swift build                             # both library targets + both probes
+swift build                             # both library targets + all three executables (scan + 2 probes)
 xcodegen generate                       # regenerate Autocrate.xcodeproj from project.yml
 ```
 
@@ -28,6 +28,7 @@ xcodegen generate                       # regenerate Autocrate.xcodeproj from pr
 ### Probes (executable targets, not shipped)
 
 ```sh
+swift run autocrate-scan                # whole-library DSP scan → warms features.sqlite (run before the app)
 swift run autocrate-probe               # exercises the live ScriptingBridge + pipeline path, times each stage
 CLIPS=/tmp/clips swift run autocrate-dsp-probe   # DSP gate: runs estimators vs known clips, prints BPM/key
 ```

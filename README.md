@@ -22,10 +22,25 @@ the setlist AutoMix runs on. v1 is show-only: you add picks to your own queue.
 ## Build & test
 
 ```sh
-swift test          # AutocrateCore unit tests (110)
+swift test          # AutocrateCore unit tests (116)
 swift build         # both library targets
 xcodegen generate   # regenerate Autocrate.xcodeproj from project.yml
 ```
+
+## First-time setup (recommended)
+
+Run the library scanner to analyze your whole library on-device and populate the feature cache:
+
+```sh
+swift run autocrate-scan
+```
+
+It resolves each track's preview clip via iTunes Search and runs on-device DSP for key
+(+ best-effort BPM), writing to `~/Library/Application Support/Autocrate/features.sqlite`. A full cold
+scan takes ~1.5–2 hrs at iTunes pacing; it is resumable (Ctrl-C anytime; re-run to continue) and
+refuses to run while the app is open. Then launch the app with ⌘R.
+
+## Run
 
 Open `Autocrate.xcodeproj` and ⌘R to run. See [`App/README.md`](App/README.md)
 for the full Xcode setup (fonts, API key, Automation permission) and the manual
