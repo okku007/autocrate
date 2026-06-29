@@ -6,11 +6,14 @@ public struct SeedHeader: View {
     let seed: Track
     let canRefresh: Bool
     let onRefresh: () -> Void
+    let onOpenWindow: (() -> Void)?
 
-    public init(seed: Track, canRefresh: Bool = false, onRefresh: @escaping () -> Void = {}) {
+    public init(seed: Track, canRefresh: Bool = false, onRefresh: @escaping () -> Void = {},
+                onOpenWindow: (() -> Void)? = nil) {
         self.seed = seed
         self.canRefresh = canRefresh
         self.onRefresh = onRefresh
+        self.onOpenWindow = onOpenWindow
     }
 
     public var body: some View {
@@ -26,6 +29,16 @@ public struct SeedHeader: View {
                 .buttonStyle(.plain)
                 .disabled(!canRefresh)
                 .help("Refresh (rate-limited)")
+                if let onOpenWindow {
+                    Button(action: onOpenWindow) {
+                        Image(systemName: "macwindow")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(Theme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut("o")
+                    .help("Open full window (⌘O)")
+                }
             }
             Text(seed.title).font(Fonts.body(13)).foregroundStyle(Theme.textPrimary)
             Text(seed.artist).font(Fonts.body(11)).foregroundStyle(Theme.textSecondary)

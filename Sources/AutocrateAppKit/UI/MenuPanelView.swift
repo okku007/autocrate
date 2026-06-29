@@ -5,6 +5,7 @@ import AutocrateCore
 /// The menu-bar panel. Drives MatchEngine and renders each PanelState.
 public struct MenuPanelView: View {
     @ObservedObject private var engine: MatchEngine
+    @Environment(\.openWindow) private var openWindow
     private let library = LibraryReader()
 
     public init(engine: MatchEngine) { self._engine = ObservedObject(wrappedValue: engine) }
@@ -39,20 +40,20 @@ public struct MenuPanelView: View {
         case .permissionDenied:
             CenteredMessage("grant Automation access to Music in\nSystem Settings → Privacy & Security")
         case .preparing(let s):
-            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }); ProcessingBanner() }
+            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }, onOpenWindow: { openWindow(id: "main") }); ProcessingBanner() }
         case .seedMiss(let s):
-            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }); CenteredMessage("no BPM/key data for this track") }
+            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }, onOpenWindow: { openWindow(id: "main") }); CenteredMessage("no BPM/key data for this track") }
         case .noMatches(let s):
-            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }); CenteredMessage("no compatible tracks found") }
+            VStack(spacing: 0) { SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }, onOpenWindow: { openWindow(id: "main") }); CenteredMessage("no compatible tracks found") }
         case .indexing(let s, let shown, let total, let hydrated):
             VStack(spacing: 0) {
-                SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() })
+                SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }, onOpenWindow: { openWindow(id: "main") })
                 IndexingBanner(hydrated: hydrated, total: total)
                 list(library: shown, discover: [])
             }
         case .ready(let s, let matches, let discover):
             VStack(spacing: 0) {
-                SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() })
+                SeedHeader(seed: s, canRefresh: engine.canManualRefresh, onRefresh: { engine.forceRefresh() }, onOpenWindow: { openWindow(id: "main") })
                 list(library: matches, discover: discover)
             }
         }
