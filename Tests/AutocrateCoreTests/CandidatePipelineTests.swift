@@ -63,4 +63,23 @@ final class CandidatePipelineTests: XCTestCase {
         let out = pipeline.shortlist(seed: s, candidates: [s])
         XCTAssertTrue(out.isEmpty)
     }
+
+    func test_crossGenreKeptWhenAllowlistOff() {
+        let out = pipeline.shortlist(seed: seed(), candidates: [
+            cand("pop", genre: "Pop", bpm: 128, camelot: "8A")
+        ], applyGenreAllowlist: false)
+        XCTAssertEqual(out.map(\.track.id), ["pop"])
+    }
+    func test_crossGenreDroppedWhenAllowlistOnByDefault() {
+        let out = pipeline.shortlist(seed: seed(), candidates: [
+            cand("pop", genre: "Pop", bpm: 128, camelot: "8A")
+        ])
+        XCTAssertTrue(out.isEmpty)
+    }
+    func test_allowlistOffStillEnforcesBpmBand() {
+        let out = pipeline.shortlist(seed: seed(), candidates: [
+            cand("pop", genre: "Pop", bpm: 150, camelot: "8A")   // out of ±6% band, not half/double
+        ], applyGenreAllowlist: false)
+        XCTAssertTrue(out.isEmpty)
+    }
 }

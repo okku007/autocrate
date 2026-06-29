@@ -7,12 +7,15 @@ public struct CandidatePipeline {
 
     public init() {}
 
-    public func shortlist(seed: Track, candidates: [Track]) -> [ScoredCandidate] {
+    public func shortlist(seed: Track, candidates: [Track],
+                          applyGenreAllowlist: Bool = true) -> [ScoredCandidate] {
         guard let seedBPM = seed.bpm, let seedKey = seed.camelot else { return [] }
 
         let scored: [ScoredCandidate] = candidates.compactMap { c -> ScoredCandidate? in
             guard c.id != seed.id else { return nil }
-            guard let genre = c.genre?.lowercased(), Self.allowlist.contains(genre) else { return nil }
+            if applyGenreAllowlist {
+                guard let genre = c.genre?.lowercased(), Self.allowlist.contains(genre) else { return nil }
+            }
             return score(candidate: c, seedBPM: seedBPM, seedKey: seedKey)
         }
         return Ranker.rank(scored)
