@@ -23,7 +23,8 @@ public final class LibrarySearchEngine: ObservableObject {
     private let pipeline = CandidatePipeline()
 
     private var allTracks: [Track] = []          // full library, recently-added-first
-    private var analyzedIDs: Set<String> = []
+    private var analyzedIDs: Set<String> = []    // rows with a Camelot key (scanned)
+    private var missedIDs: Set<String> = []      // scanned, no key found
     private var pool: [Track] = []               // analyzed tracks as rankable candidates
     private var query = ""
 
@@ -41,9 +42,10 @@ public final class LibrarySearchEngine: ObservableObject {
         totalLibraryCount = allTracks.count
         let features = (try? cache.analyzedFeatures()) ?? []
         analyzedIDs = Set(features.map(\.id))
+        missedIDs = (try? cache.missedIDs()) ?? []
         pool = features.map(Track.init(feature:))
         coverage = try? cache.coverage()
-        newSongs = LibrarySearch.newSongs(tracks: allTracks, analyzedIDs: analyzedIDs)
+        newSongs = LibrarySearch.notAnalyzed(tracks: allTracks, analyzedIDs: analyzedIDs, missedIDs: missedIDs)
         applyQuery()
     }
 
@@ -65,6 +67,6 @@ public final class LibrarySearchEngine: ObservableObject {
 
     private func applyQuery() {
         let filtered = LibrarySearch.filter(query: query, tracks: allTracks)
-        results = LibrarySearch.annotate(tracks: filtered, analyzedIDs: analyzedIDs)
+        results = LibrarySearch.classify(tracks: filtered, analyzedIDs: analyzedIDs, missedIDs: missedIDs)
     }
 }

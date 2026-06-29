@@ -107,4 +107,12 @@ public final class FeatureCache {
             try CachedFeature.fetchAll(db, sql: "SELECT * FROM feature_cache WHERE camelot IS NOT NULL")
         }
     }
+
+    /// Ids of rows that were scanned but yielded no Camelot key (cached misses) — shown in the
+    /// desktop window's "Missed" section, distinct from never-scanned tracks (no row at all).
+    public func missedIDs() throws -> Set<String> {
+        try dbQueue.read { db in
+            Set(try String.fetchAll(db, sql: "SELECT id FROM feature_cache WHERE camelot IS NULL"))
+        }
+    }
 }

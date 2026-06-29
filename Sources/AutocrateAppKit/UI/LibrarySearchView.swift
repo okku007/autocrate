@@ -30,13 +30,30 @@ public struct LibrarySearchView: View {
             if !engine.newSongs.isEmpty {
                 NewSongsCard(count: engine.newSongs.count)
             }
-            List(engine.results) { entry in
-                LibraryResultRow(entry: entry)
-                    .contentShape(Rectangle())
-                    .onTapGesture { if entry.isAnalyzed { engine.selectSeed(entry) } }
+            List {
+                section("SCANNED", engine.results.filter { $0.category == .scanned })
+                section("MISSED", engine.results.filter { $0.category == .missed })
+                section("NOT ANALYZED", engine.results.filter { $0.category == .notAnalyzed })
             }
         }
         .padding(Theme.panelPadding)
+    }
+
+    /// One titled section with a count; only `.scanned` rows are tappable. Hidden when empty.
+    @ViewBuilder
+    private func section(_ title: String, _ entries: [LibraryEntry]) -> some View {
+        if !entries.isEmpty {
+            Section {
+                ForEach(entries) { entry in
+                    LibraryResultRow(entry: entry)
+                        .contentShape(Rectangle())
+                        .onTapGesture { if entry.isAnalyzed { engine.selectSeed(entry) } }
+                }
+            } header: {
+                Text("\(title)  (\(entries.count))")
+                    .font(Fonts.body(9)).foregroundStyle(Theme.textSecondary)
+            }
+        }
     }
 
     private var matchesPane: some View {
@@ -60,24 +77,34 @@ public struct LibrarySearchView: View {
     }
 }
 
-/// One row in the search results: analyzed (pickable) or greyed "not analyzed".
+/// One row in the search results. `.scanned` is pickable (accent dot, full opacity); `.missed` and
+/// `.notAnalyzed` are greyed with a trailing status label.
 private struct LibraryResultRow: View {
     let entry: LibraryEntry
+    private var pickable: Bool { entry.category == .scanned }
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: entry.isAnalyzed ? "circle.fill" : "circle")
+            Image(systemName: pickable ? "circle.fill" : "circle")
                 .font(.system(size: 7))
-                .foregroundStyle(entry.isAnalyzed ? Theme.accent : Theme.textSecondary)
+                .foregroundStyle(pickable ? Theme.accent : Theme.textSecondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.track.title).font(Fonts.body(12))
-                    .foregroundStyle(entry.isAnalyzed ? Theme.textPrimary : Theme.textSecondary)
+                    .foregroundStyle(pickable ? Theme.textPrimary : Theme.textSecondary)
                 Text(entry.track.artist).font(Fonts.body(10)).foregroundStyle(Theme.textSecondary)
             }
             Spacer()
-            if !entry.isAnalyzed {
-                Text("not analyzed").font(Fonts.body(9)).foregroundStyle(Theme.textSecondary)
+            if let label = trailingLabel {
+                Text(label).font(Fonts.body(9)).foregroundStyle(Theme.textSecondary)
             }
         }
-        .opacity(entry.isAnalyzed ? 1 : 0.55)
+        .opacity(pickable ? 1 : 0.55)
+    }
+
+    private var trailingLabel: String? {
+        switch entry.category {
+        case .scanned:     return nil
+        case .missed:      return "no key found"
+        case .notAnalyzed: return "not scanned"
+        }
     }
 }

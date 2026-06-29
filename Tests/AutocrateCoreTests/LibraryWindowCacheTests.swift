@@ -14,6 +14,13 @@ final class LibraryWindowCacheTests: XCTestCase {
         XCTAssertEqual(try cache.analyzedFeatures().map(\.id).sorted(), ["a"])
     }
 
+    func test_missedIDsReturnsRowsWithoutCamelot() throws {
+        let cache = try FeatureCache(path: ":memory:")
+        try cache.upsert(row("a", camelot: "8A", bpm: 128))
+        try cache.upsert(row("b", camelot: nil, bpm: nil))
+        XCTAssertEqual(try cache.missedIDs().sorted(), ["b"])
+    }
+
     func test_trackFromFeatureParsesCamelotAndDropsGenre() {
         let track = Track(feature: row("x", camelot: "9B", bpm: 124))
         XCTAssertEqual(track.camelot, CamelotKey("9B"))

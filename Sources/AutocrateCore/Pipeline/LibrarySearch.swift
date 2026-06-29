@@ -1,13 +1,23 @@
 import Foundation
 
-/// A library track tagged with whether it has analyzed features (so it can seed a match).
+/// How a library track relates to the feature cache.
+/// - `scanned`: has a Camelot key — pickable as a seed.
+/// - `missed`: the scanner ran but found no key (cached miss) — not pickable.
+/// - `notAnalyzed`: no cache row yet — hasn't been scanned.
+public enum LibraryCategory: Equatable, Sendable {
+    case scanned, missed, notAnalyzed
+}
+
+/// A library track tagged with its cache category. Only `.scanned` entries can seed a match.
 public struct LibraryEntry: Equatable, Identifiable {
     public let track: Track
-    public let isAnalyzed: Bool
+    public let category: LibraryCategory
+    /// True only for `.scanned` — the entry can be picked as a seed.
+    public var isAnalyzed: Bool { category == .scanned }
     public var id: String { track.id }
-    public init(track: Track, isAnalyzed: Bool) {
+    public init(track: Track, category: LibraryCategory) {
         self.track = track
-        self.isAnalyzed = isAnalyzed
+        self.category = category
     }
 }
 
@@ -25,13 +35,23 @@ public enum LibrarySearch {
 }
 
 public extension LibrarySearch {
-    /// Tag each library track as analyzed (its id is present in `analyzedIDs`) or not.
-    static func annotate(tracks: [Track], analyzedIDs: Set<String>) -> [LibraryEntry] {
-        tracks.map { LibraryEntry(track: $0, isAnalyzed: analyzedIDs.contains($0.id)) }
+    /// Classify each library track: scanned (key present) > missed (scanned, no key) > not analyzed.
+    /// `analyzedIDs` and `missedIDs` are disjoint by construction; scanned wins if an id is in both.
+    static func classify(tracks: [Track], analyzedIDs: Set<String>,
+                         missedIDs: Set<String>) -> [LibraryEntry] {
+        tracks.map { t in
+            let category: LibraryCategory
+            if analyzedIDs.contains(t.id) { category = .scanned }
+            else if missedIDs.contains(t.id) { category = .missed }
+            else { category = .notAnalyzed }
+            return LibraryEntry(track: t, category: category)
+        }
     }
 
-    /// Library tracks with no analyzed features yet — what the "analyze new songs" card lists.
-    static func newSongs(tracks: [Track], analyzedIDs: Set<String>) -> [Track] {
-        tracks.filter { !analyzedIDs.contains($0.id) }
+    /// Library tracks never scanned (no cache row at all) — what the "analyze new songs" card lists.
+    /// Excludes misses: those were already scanned, so a re-run skips them.
+    static func notAnalyzed(tracks: [Track], analyzedIDs: Set<String>,
+                            missedIDs: Set<String>) -> [Track] {
+        tracks.filter { !analyzedIDs.contains($0.id) && !missedIDs.contains($0.id) }
     }
 }
