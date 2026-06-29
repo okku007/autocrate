@@ -34,6 +34,7 @@ public final class LibrarySearchEngine: ObservableObject {
 
     /// Load (or reload) the library + analyzed features. Call on first window open.
     public func load() async {
+        guard !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
         allTracks = await library.readAllAsync()
